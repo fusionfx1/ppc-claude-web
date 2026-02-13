@@ -4,7 +4,6 @@ import { uid, now } from "../utils";
 import { Card, Btn, Badge, Inp, Dot } from "./Atoms";
 import { leadingCardsApi } from "../services/leadingCards";
 import { multiloginApi } from "../services/multilogin";
-import { api } from "../services/api";
 import { detectRisks, RISK_ICONS, RISK_COLORS } from "../utils/risk-engine";
 
 /* ─── Shared inline styles ───────────────────────────────────────────── */
@@ -65,8 +64,15 @@ export function OpsCenter({ data, add, del, upd, settings }) {
         setTimeout(() => setStatusMsg(null), 3000);
     };
 
-    /* ─── Data fetching (no settings params — Worker handles auth) ──── */
+    /* ─── Sync MLX token from settings ──────────────────────────────── */
     useEffect(() => {
+        if (settings.mlToken) multiloginApi.setToken(settings.mlToken);
+    }, [settings.mlToken]);
+
+    /* ─── Data fetching (direct MLX API) ─────────────────────────────── */
+    useEffect(() => {
+        let cancelled = false;
+
         if (tab === "payments" || tab === "overview") {
             setLcLoading(true);
             Promise.all([
@@ -74,19 +80,22 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 leadingCardsApi.getBins(),
                 leadingCardsApi.getBillingAddresses()
             ]).then(([cardsRes, binsRes, addrRes]) => {
+                if (cancelled) return;
                 setLcCards(cardsRes.results || []);
                 setLcBins(binsRes || []);
                 setLcAddresses(addrRes.results || []);
             }).catch(() => { })
-                .finally(() => setLcLoading(false));
+                .finally(() => { if (!cancelled) setLcLoading(false); });
         }
         if (tab === "profiles" || tab === "overview") {
             setMlLoading(true);
             multiloginApi.getProfiles()
-                .then(res => setMlProfiles(res.data?.profiles || res || []))
+                .then(res => { if (!cancelled) setMlProfiles(res.data?.profiles || res || []); })
                 .catch(() => { })
-                .finally(() => setMlLoading(false));
+                .finally(() => { if (!cancelled) setMlLoading(false); });
         }
+
+        return () => { cancelled = true; };
     }, [tab]);
 
     useEffect(() => {
@@ -94,7 +103,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
         const poll = setInterval(() => {
             multiloginApi.getActiveProfiles()
                 .then(res => {
-                    const activeIds = (res || []).map(p => p.mlProfileId);
+                    const activeList = Array.isArray(res) ? res : (res?.data || []);
+                    const activeIds = activeList.map(p => p.mlProfileId || p.uuid || p.id);
                     // Update mlProfiles status based on active list
                     setMlProfiles(prev => prev.map(p => {
                         const pid = p.uuid || p.id;
@@ -211,9 +221,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     await multiloginApi.stopProfile(prof.mlProfileId);
                 }
             }
-            // 3. Update in D1
-            await api.put(`/ops/accounts/${account.id}`, { status: "suspended", cardStatus: "BLOCKED" });
-            // 4. Update local state
+            // 3. Update local state + persist to API
             upd("accounts", account.id, { status: "suspended", cardStatus: "BLOCKED" });
             await refreshCards();
             flash(`Account "${account.label}" suspended successfully`, "success");
@@ -363,7 +371,6 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                                 if (newStatus === "suspended") {
                                                     handleSuspend(acct);
                                                 } else {
-                                                    api.put(`/ops/accounts/${acct.id}`, { status: newStatus }).catch(() => { });
                                                     upd("accounts", acct.id, { status: newStatus });
                                                 }
                                             }}
@@ -486,7 +493,6 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                                 cardLast4: selectedCard?.card_last_4 || "",
                                                 cardStatus: selectedCard?.status || "",
                                             };
-                                            api.put(`/ops/accounts/${acct.id}`, updates).catch(() => { });
                                             upd("accounts", acct.id, updates);
                                             setModal(null);
                                             flash("Account updated");
@@ -565,9 +571,10 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                             : mlProfiles.map(p => {
                                 const pid = p.uuid || p.id;
                                 const isRunning = p.status === "running" || p.status === "started";
-                                const proxyInfo = p.parameters?.proxy?.host
-                                    ? `${p.parameters.proxy.host}:${p.parameters.proxy.port || ""}`
-                                    : p.proxy || "\u2014";
+                                const proxyObj = p.parameters?.proxy || (typeof p.proxy === "object" ? p.proxy : null);
+                                const proxyInfo = proxyObj?.host
+                                    ? `${proxyObj.host}:${proxyObj.port || ""}`
+                                    : (typeof p.proxy === "string" ? p.proxy : null) || "\u2014";
                                 // Find linked D1 profile
                                 const d1Profile = data.profiles.find(dp => dp.mlProfileId === pid);
                                 return (
@@ -601,7 +608,9 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                                 }} style={S.miniBtn}>Stop</Btn>
                                             ) : (
                                                 <Btn variant="success" onClick={() => {
-                                                    multiloginApi.startProfile(pid).then(() => {
+                                                    const fid = p.folder_id || settings.mlFolderId || "";
+                                                    multiloginApi.startProfile(pid, fid).then((res) => {
+                                                        if (res?.error) { flash(`Start failed: ${res.error}`, "error"); return; }
                                                         refreshProfiles();
                                                         flash("Profile started");
                                                     }).catch(e => flash(`Start failed: ${e.message}`, "error"));

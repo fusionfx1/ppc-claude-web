@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { THEME as T, COLORS, FONTS, RADIUS, LOAN_TYPES, LAYOUTS, NETWORKS_AFF } from "../constants";
 import { uid, now, hsl } from "../utils";
 import { generateLP } from "../utils/lp-generator";
+import { generateAstroProject } from "../utils/astro-generator";
 import { api } from "../services/api";
 import { Card, Inp, Btn, Field, MockPhone } from "./Atoms";
 
@@ -13,6 +14,7 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
 
     const handleBuild = async () => {
         setBuilding(true);
+        let finalConfig = { ...config };
         if (!config.h1 || !config.badge || !config.cta) {
             try {
                 const p = await api.post("/ai/generate-copy", {
@@ -24,16 +26,17 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
                 });
 
                 if (p && !p.error) {
-                    if (!config.h1 && p.h1) upd("h1", p.h1);
-                    if (!config.badge && p.badge) upd("badge", p.badge);
-                    if (!config.cta && p.cta) upd("cta", p.cta);
-                    if (!config.sub && p.sub) upd("sub", p.sub);
-                    if (!config.tagline && p.tagline) upd("tagline", p.tagline);
+                    if (!config.h1 && p.h1) finalConfig.h1 = p.h1;
+                    if (!config.badge && p.badge) finalConfig.badge = p.badge;
+                    if (!config.cta && p.cta) finalConfig.cta = p.cta;
+                    if (!config.sub && p.sub) finalConfig.sub = p.sub;
+                    if (!config.tagline && p.tagline) finalConfig.tagline = p.tagline;
+                    setConfig(prev => ({ ...prev, ...finalConfig }));
                 }
             } catch { /* AI generation skipped */ }
         }
         await new Promise(r => setTimeout(r, 1000));
-        addSite({ ...config, id: uid(), status: "completed", createdAt: now(), cost: 0.001 }); // Reduced cost for Gemini Flash
+        addSite({ ...finalConfig, id: uid(), status: "completed", createdAt: now(), cost: 0.001 });
         setBuilding(false);
     };
 
@@ -223,11 +226,60 @@ function StepTracking({ c, u }) {
 
 function StepReview({ c, building }) {
     const co = COLORS.find(x => x.id === c.colorId) || COLORS[0];
+    const previewHtml = useMemo(() => generateLP(c), [c.brand, c.domain, c.loanType, c.colorId, c.fontId, c.layout, c.radius, c.h1, c.badge, c.cta, c.sub, c.amountMin, c.amountMax, c.redirectUrl, c.gtmId]);
+    const astroFiles = useMemo(() => {
+        try { return Object.keys(generateAstroProject(c)); } catch { return []; }
+    }, [c.brand, c.domain, c.colorId, c.fontId]);
+    const [showTree, setShowTree] = useState(false);
+
     const rows = [
         ["Brand", c.brand], ["Domain", c.domain || "—"], ["Type", LOAN_TYPES.find(l => l.id === c.loanType)?.label],
         ["Range", `$${c.amountMin}–$${c.amountMax}`], ["APR", `${c.aprMin}%–${c.aprMax}%`],
         ["Colors", co.name], ["GTM", c.gtmId || "—"],
     ];
+
+    // Build a tree structure from file paths
+    const buildTree = (paths) => {
+        const tree = {};
+        for (const p of paths) {
+            const parts = p.split("/");
+            let node = tree;
+            for (let i = 0; i < parts.length; i++) {
+                const name = parts[i];
+                if (i === parts.length - 1) {
+                    node[name] = null; // leaf file
+                } else {
+                    if (!node[name]) node[name] = {};
+                    node = node[name];
+                }
+            }
+        }
+        return tree;
+    };
+
+    const renderTree = (node, depth = 0) => {
+        if (!node) return null;
+        return Object.entries(node).sort(([a, av], [b, bv]) => {
+            // Directories first
+            if (av !== null && bv === null) return -1;
+            if (av === null && bv !== null) return 1;
+            return a.localeCompare(b);
+        }).map(([name, children]) => {
+            const isDir = children !== null;
+            const ext = name.split(".").pop();
+            const iconMap = { astro: "🟣", js: "🟡", mjs: "🟡", ts: "🔵", json: "📋", css: "🎨", md: "📄", env: "🔐" };
+            const icon = isDir ? "📁" : (iconMap[ext] || "📄");
+            return (
+                <div key={name + depth}>
+                    <div style={{ padding: "2px 0", paddingLeft: depth * 14, fontSize: 11, fontFamily: "monospace", color: isDir ? T.text : T.muted, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontSize: 10 }}>{icon}</span>
+                        <span style={{ fontWeight: isDir ? 600 : 400 }}>{name}</span>
+                    </div>
+                    {isDir && renderTree(children, depth + 1)}
+                </div>
+            );
+        });
+    };
 
     return (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
@@ -241,15 +293,34 @@ function StepReview({ c, building }) {
                         </div>
                     ))}
                 </div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                     {["p", "s", "a"].map(k => <div key={k} style={{ flex: 1, padding: "8px", borderRadius: 8, background: hsl(...co[k]), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 700 }}>{k.toUpperCase()}</div>)}
                 </div>
+
+                {/* Astro Project File Tree */}
+                <div style={{ background: T.input, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
+                    <button onClick={() => setShowTree(!showTree)} style={{
+                        width: "100%", padding: "10px 16px", fontWeight: 600, fontSize: 13,
+                        borderBottom: showTree ? `1px solid ${T.border}` : "none",
+                        background: "transparent", border: "none", color: T.text,
+                        cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center",
+                    }}>
+                        <span>🚀 Astro Project ({astroFiles.length} files)</span>
+                        <span style={{ fontSize: 10, color: T.muted }}>{showTree ? "▲" : "▼"}</span>
+                    </button>
+                    {showTree && (
+                        <div style={{ padding: "8px 12px", maxHeight: 200, overflowY: "auto" }}>
+                            {renderTree(buildTree(astroFiles))}
+                        </div>
+                    )}
+                </div>
+
                 {building && <div style={{ textAlign: "center", padding: 12, background: T.primaryGlow, borderRadius: 8, color: T.primary, fontSize: 13, fontWeight: 600, animation: "pulse 1s infinite" }}>⚡ AI is crafting your site...</div>}
             </div>
 
             <div style={{ display: "flex", justifyContent: "center" }}>
                 <MockPhone style={{ transform: "scale(0.85)", originY: "top" }}>
-                    <iframe title="mobile-preview" style={{ width: "100%", height: "100%", border: "none" }} srcDoc={generateLP(c)} />
+                    <iframe title="mobile-preview" style={{ width: "100%", height: "100%", border: "none" }} srcDoc={previewHtml} />
                 </MockPhone>
             </div>
         </div>

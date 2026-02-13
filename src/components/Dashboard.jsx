@@ -4,7 +4,7 @@ import { hsl } from "../utils";
 import { detectRisks } from "../utils/risk-engine";
 import { Card, Btn, Badge, Dot } from "./Atoms";
 
-export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = {}, apiOk }) {
+export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = {}, apiOk, neonOk }) {
     const recent = sites.slice(0, 5);
     const risks = useMemo(() => detectRisks(ops), [ops]);
 
@@ -117,12 +117,17 @@ export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = 
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, textTransform: "uppercase" }}>System Health</h3>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>D1 Database</span>
-                                <Dot c={apiOk ? T.success : T.danger} label={apiOk ? "Connected" : "Offline"} />
+                                <span style={{ fontSize: 12 }}>Data Store</span>
+                                <Dot c={neonOk ? T.success : apiOk ? T.success : T.warning}
+                                     label={neonOk ? "Neon DB" : apiOk ? "API / D1" : "Local Only"} />
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Netlify API</span>
-                                <Dot c={settings.netlifyToken ? T.success : T.dim} label={settings.netlifyToken ? "Connected" : "Not Set"} />
+                                <span style={{ fontSize: 12 }}>CF Pages Deploy</span>
+                                <Dot c={settings.cfApiToken ? T.success : T.dim} label={settings.cfApiToken ? "Ready" : "Not Set"} />
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 12 }}>Netlify Deploy</span>
+                                <Dot c={settings.netlifyToken ? T.success : T.dim} label={settings.netlifyToken ? "Ready" : "Not Set"} />
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: 12 }}>LeadingCards API</span>

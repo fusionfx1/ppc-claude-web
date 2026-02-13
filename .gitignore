@@ -2,3 +2,15 @@ node_modules
 dist
 .env
 .env.local
+.env.production
+
+# Astro
+.astro/
+
+# Wrangler
+.wrangler/
+.dev.vars
+
+# OS
+.DS_Store
+Thumbs.db
