@@ -1,9 +1,31 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { THEME as T, COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants";
 import { uid, now, hsl } from "../utils";
 import { generateLP, makeThemeJson } from "../utils/lp-generator";
 import { Card, Inp, Btn, Badge, Dot } from "./Atoms";
 import { api } from "../services/api";
+
+/* ─── Extracted to module level to avoid re-creation on every render ─── */
+function VarCard({ variant, onBuild, onExport, showActions = true }) {
+    const c = COLORS.find(x => x.id === variant.colorId) || COLORS[0];
+    const f = FONTS.find(x => x.id === variant.fontId) || FONTS[0];
+    return (
+        <Card style={{ padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: hsl(...c.p), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 700 }}>{variant.brand?.[0]}</div>
+            <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{variant.brand}</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <Dot c={hsl(...c.p)} label={c.name} />
+                    <Dot c={T.primary} label={f.name} />
+                </div>
+            </div>
+            {showActions && <div style={{ display: "flex", gap: 4 }}>
+                <Btn variant="ghost" onClick={() => onBuild(variant)} style={{ padding: "4px 8px", fontSize: 10 }}>Build</Btn>
+                <Btn variant="ghost" onClick={() => onExport(variant)} style={{ padding: "4px 8px", fontSize: 10 }}>JSON</Btn>
+            </div>}
+        </Card>
+    );
+}
 
 export function VariantStudio({ notify, sites, addSite, registry, setRegistry, apiOk }) {
     const [v, setV] = useState({
@@ -59,28 +81,7 @@ export function VariantStudio({ notify, sites, addSite, registry, setRegistry, a
             const res = await api.post("/ai/generate-assets", { brand: v.brand, type });
             if (res.url) setAssets(p => ({ ...p, [type]: res.url }));
         } catch (e) { notify("Asset creation failed", "danger"); }
-        setLoadingAsset(false);
-    };
-
-    const VarCard = ({ v, showActions = true }) => {
-        const c = COLORS.find(x => x.id === v.colorId) || COLORS[0];
-        const f = FONTS.find(x => x.id === v.fontId) || FONTS[0];
-        return (
-            <Card style={{ padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: hsl(...c.p), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 700 }}>{v.brand?.[0]}</div>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>{v.brand}</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                        <Dot c={hsl(...c.p)} label={c.name} />
-                        <Dot c={T.primary} label={f.name} />
-                    </div>
-                </div>
-                {showActions && <div style={{ display: "flex", gap: 4 }}>
-                    <Btn variant="ghost" onClick={() => createFromVar(v)} style={{ padding: "4px 8px", fontSize: 10 }}>Build</Btn>
-                    <Btn variant="ghost" onClick={() => exportVar(v)} style={{ padding: "4px 8px", fontSize: 10 }}>JSON</Btn>
-                </div>}
-            </Card>
-        );
+        setLoadingAsset(null);
     };
 
     return (
@@ -117,7 +118,7 @@ export function VariantStudio({ notify, sites, addSite, registry, setRegistry, a
                 <div>
                     <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>Registry ({registry.length})</h3>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflow: "auto", paddingRight: 4 }}>
-                        {registry.length === 0 ? <div style={{ textAlign: "center", padding: 40, border: `1px dashed ${T.border}`, borderRadius: 10, color: T.dim, fontSize: 12 }}>No saved variants</div> : registry.map(rv => <VarCard key={rv.id} v={rv} />)}
+                        {registry.length === 0 ? <div style={{ textAlign: "center", padding: 40, border: `1px dashed ${T.border}`, borderRadius: 10, color: T.dim, fontSize: 12 }}>No saved variants</div> : registry.map(rv => <VarCard key={rv.id} variant={rv} onBuild={createFromVar} onExport={exportVar} />)}
                     </div>
 
                     <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, marginTop: 24, textTransform: "uppercase", letterSpacing: 1 }}>✨ AI Asset Studio</h3>
@@ -142,7 +143,7 @@ export function VariantStudio({ notify, sites, addSite, registry, setRegistry, a
 
                     <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, marginTop: 24, textTransform: "uppercase", letterSpacing: 1 }}>Generated Batch</h3>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {previews.length === 0 ? <div style={{ textAlign: "center", padding: 40, border: `1px dashed ${T.border}`, borderRadius: 10, color: T.dim, fontSize: 12 }}>Click generate to see themes</div> : previews.map(pv => <VarCard key={pv.id} v={pv} />)}
+                        {previews.length === 0 ? <div style={{ textAlign: "center", padding: 40, border: `1px dashed ${T.border}`, borderRadius: 10, color: T.dim, fontSize: 12 }}>Click generate to see themes</div> : previews.map(pv => <VarCard key={pv.id} variant={pv} onBuild={createFromVar} onExport={exportVar} />)}
                     </div>
                 </div>
             </div>

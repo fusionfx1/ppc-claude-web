@@ -10,7 +10,11 @@ export const LS = {
 };
 
 export function uid() {
-    return Math.random().toString(36).slice(2, 10);
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+    }
+    // Fallback for environments without crypto.randomUUID
+    return (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).slice(0, 16);
 }
 
 export function now() {

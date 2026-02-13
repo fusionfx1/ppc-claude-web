@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { api } from "./services/api";
+import * as db from "./services/neon";
 import { THEME as T } from "./constants";
-import { uid, now } from "./utils";
+import { uid, now, LS } from "./utils";
 
 // Component Imports
 import { Sidebar } from "./components/Sidebar";
@@ -15,11 +16,14 @@ import { OpsCenter } from "./components/OpsCenter";
 import { Settings } from "./components/Settings";
 import { DeployHistory } from "./components/DeployHistory";
 
+// Neon connection string — stored in settings or hardcoded for now
+const NEON_URL = import.meta.env.PUBLIC_NEON_URL || "";
+
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [sites, setSites] = useState([]);
   const [ops, setOps] = useState({ domains: [], accounts: [], cfAccounts: [], profiles: [], payments: [], logs: [] });
-  const [settings, setSettings] = useState({});
+  const [settings, setSettings] = useState(() => LS.get("settings") || {});
   const [stats, setStats] = useState({ builds: 0, spend: 0 });
   const [toast, setToast] = useState(null);
   const [wizData, setWizData] = useState(null);
@@ -28,26 +32,99 @@ export default function App() {
   const [registry, setRegistry] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiOk, setApiOk] = useState(false);
+  const [neonOk, setNeonOk] = useState(false);
 
   useEffect(() => {
-    api.get("/init").then(data => {
-      if (data.error) { setApiOk(false); return; }
-      if (data.sites) setSites(data.sites);
-      if (data.ops) {
-        setOps({
-          ...data.ops,
-          cfAccounts: data.cfAccounts || []
-        });
-      }
-      if (data.settings) setSettings(data.settings);
-      if (data.stats) setStats(data.stats);
-      if (data.deploys) setDeploys(data.deploys);
-      if (data.variants) setRegistry(data.variants);
-      setApiOk(true);
-    }).catch(() => {
-      setApiOk(false);
-    }).finally(() => setLoading(false));
+    bootApp();
   }, []);
+
+  async function bootApp() {
+    const localSettings = LS.get("settings") || {};
+
+    // 1. Try Neon first (primary data store)
+    const neonConnStr = NEON_URL || localSettings.neonUrl || "";
+    let neonReady = false;
+
+    // Only attempt Neon if the URL looks like a real connection string
+    if (neonConnStr && neonConnStr.includes("@") && !neonConnStr.includes("ep-xxx")) {
+      try {
+        const initialized = db.initNeon(neonConnStr);
+        if (initialized) {
+          const pong = await db.ping();
+          if (pong) {
+            neonReady = true;
+            setNeonOk(true);
+
+            // Load from Neon
+            const [neonSettings, neonSites, neonDeploys] = await Promise.all([
+              db.loadSettings(),
+              db.loadSites(),
+              db.loadDeploys(),
+            ]);
+
+            // Merge: localStorage wins over Neon (user's most recent saves)
+            // then Neon fills in anything not in localStorage
+            if (neonSettings && Object.keys(neonSettings).length > 0) {
+              const merged = { ...neonSettings, ...localSettings };
+              setSettings(merged);
+              LS.set("settings", merged);
+            }
+
+            // Sites from Neon
+            if (neonSites && neonSites.length > 0) {
+              setSites(neonSites);
+            } else {
+              // First time: sync localStorage sites to Neon
+              const localSites = LS.get("sites") || [];
+              if (localSites.length > 0) {
+                setSites(localSites);
+                db.syncFromLocal(localSettings, localSites, []);
+              }
+            }
+
+            // Deploys from Neon
+            if (neonDeploys && neonDeploys.length > 0) {
+              setDeploys(neonDeploys);
+            }
+
+            // Stats
+            const siteList = neonSites?.length ? neonSites : [];
+            setStats({
+              builds: siteList.length,
+              spend: +(siteList.reduce((a, s) => a + (s.cost || 0), 0)).toFixed(3),
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[boot] Neon init failed:", e.message);
+      }
+    }
+
+    // 2. Try legacy API as fallback (if Neon not ready)
+    if (!neonReady) {
+      try {
+        const data = await api.get("/init");
+        if (!data.error) {
+          if (data.sites) setSites(data.sites);
+          if (data.ops) setOps({ ...data.ops, cfAccounts: data.cfAccounts || [] });
+          if (data.settings) {
+            // localStorage wins — user's local saves are most recent
+            const merged = { ...data.settings, ...localSettings };
+            setSettings(merged);
+            LS.set("settings", merged);
+          }
+          if (data.stats) setStats(data.stats);
+          if (data.deploys) setDeploys(data.deploys);
+          if (data.variants) setRegistry(data.variants);
+          setApiOk(true);
+        }
+      } catch {
+        // Both Neon and API failed — use localStorage only
+      }
+    }
+
+    setLoading(false);
+  }
 
   const notify = (msg, type = "success") => {
     setToast({ msg, type });
@@ -68,43 +145,106 @@ export default function App() {
   const addSite = (site) => {
     setSites(p => [site, ...p]);
     setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
-    if (apiOk) api.post("/sites", site).catch(() => { });
+
+    // Persist to Neon (primary) or API (fallback)
+    if (neonOk) db.saveSite(site).catch(() => {});
+    else if (apiOk) api.post("/sites", site).catch(() => {});
+
     notify(`${site.brand} created!`);
     setPage("sites");
   };
 
   const delSite = (id) => {
     setSites(p => p.filter(s => s.id !== id));
-    if (apiOk) api.del(`/sites/${id}`).catch(() => { });
+
+    if (neonOk) db.deleteSite(id).catch(() => {});
+    else if (apiOk) api.del(`/sites/${id}`).catch(() => {});
+
     notify("Deleted", "danger");
   };
 
   const addDeploy = (d) => {
     setDeploys(p => [d, ...p].slice(0, 100));
-    if (apiOk) api.post("/deploys", d).catch(() => { });
+
+    if (neonOk) db.saveDeploy(d).catch(() => {});
+    else if (apiOk) api.post("/deploys", d).catch(() => {});
   };
 
   const opsAdd = (coll, item) => {
+    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
     setOps(p => ({
-      ...p, [coll]: [item, ...p[coll]],
+      ...p, [stateKey]: [item, ...p[stateKey]],
       logs: [{ id: uid(), msg: `Added ${coll.slice(0, -1)}: ${item.label || item.domain || item.name || item.id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
     const endpoint = coll === "cf-accounts" ? "/cf-accounts" : `/ops/${coll}`;
-    if (apiOk) api.post(endpoint, item).catch(() => { });
+    if (apiOk) api.post(endpoint, item).catch(() => {});
   };
 
   const opsDel = (coll, id) => {
-    const item = ops[coll].find(i => i.id === id);
+    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
+    const item = ops[stateKey].find(i => i.id === id);
     setOps(p => ({
-      ...p, [coll]: p[coll].filter(i => i.id !== id),
+      ...p, [stateKey]: p[stateKey].filter(i => i.id !== id),
       logs: [{ id: uid(), msg: `Deleted: ${item?.label || item?.domain || id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
     const endpoint = coll === "cf-accounts" ? `/cf-accounts/${id}` : `/ops/${coll}/${id}`;
-    if (apiOk) api.del(endpoint).catch(() => { });
+    if (apiOk) api.del(endpoint).catch(() => {});
   };
 
   const opsUpd = (coll, id, u) => {
-    setOps(p => ({ ...p, [coll]: p[coll].map(i => i.id === id ? { ...i, ...u } : i) }));
+    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
+    setOps(p => ({
+      ...p,
+      [stateKey]: (p[stateKey] || []).map(i => i.id === id ? { ...i, ...u } : i),
+      logs: [{ id: uid(), msg: `Updated ${coll.slice(0, -1)}: ${id}`, ts: now() }, ...p.logs].slice(0, 200),
+    }));
+    // Persist to API
+    const endpoint = coll === "cf-accounts" ? `/cf-accounts/${id}` : `/ops/${coll}/${id}`;
+    if (apiOk) api.put(endpoint, u).catch(() => {});
+  };
+
+  const handleSaveSettings = async (s) => {
+    // Use functional update to avoid stale closure
+    let next;
+    setSettings(prev => {
+      next = { ...prev, ...s };
+      return next;
+    });
+    // Always persist to localStorage immediately
+    // Read fresh from state in case other saves happened
+    const fresh = { ...(LS.get("settings") || {}), ...s };
+    LS.set("settings", fresh);
+
+    // If neonUrl changed, re-init Neon
+    if (s.neonUrl) {
+      const ok = db.initNeon(s.neonUrl);
+      if (ok) {
+        const pong = await db.ping();
+        setNeonOk(pong);
+        if (pong) {
+          notify("Neon connected!");
+          db.syncFromLocal(fresh, sites, deploys);
+          return;
+        }
+      }
+      notify("Neon connection failed", "danger");
+      return;
+    }
+
+    // Save to Neon (primary) or API (fallback)
+    if (neonOk) {
+      const ok = await db.saveSettings(s);
+      if (ok) { notify("Saved!"); }
+      else { notify("Saved locally — Neon sync failed", "warning"); }
+    } else if (apiOk) {
+      try {
+        const res = await api.post("/settings", s);
+        if (res && !res.error) { notify("Saved!"); }
+        else { notify("Saved locally — API sync failed", "warning"); }
+      } catch { notify("Saved locally — API unreachable", "warning"); }
+    } else {
+      notify("Saved locally", "success");
+    }
   };
 
   if (loading) return (
@@ -121,23 +261,21 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif" }}>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
-
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
       <Sidebar page={page} setPage={setPage} siteCount={sites.length} startCreate={startCreate}
         collapsed={sideCollapsed} toggle={() => setSideCollapsed(p => !p)} />
 
       <main style={{ flex: 1, marginLeft: ml, minHeight: "100vh", transition: "margin .2s" }}>
-        <TopBar stats={stats} settings={settings} deploys={deploys} apiOk={apiOk} />
+        <TopBar stats={stats} settings={settings} deploys={deploys} apiOk={apiOk} neonOk={neonOk} />
         <div style={{ padding: "24px 28px" }}>
-          {page === "dashboard" && <Dashboard sites={sites} stats={stats} ops={ops} setPage={setPage} startCreate={startCreate} settings={settings} apiOk={apiOk} />}
+          {page === "dashboard" && <Dashboard sites={sites} stats={stats} ops={ops} setPage={setPage} startCreate={startCreate} settings={settings} apiOk={apiOk} neonOk={neonOk} />}
           {page === "sites" && <Sites sites={sites} del={delSite} notify={notify} startCreate={startCreate} settings={settings} addDeploy={addDeploy} />}
           {page === "create" && wizData && <Wizard config={wizData} setConfig={setWizData} addSite={addSite} setPage={setPage} settings={settings} notify={notify} />}
           {page === "variant" && <VariantStudio notify={notify} sites={sites} addSite={addSite} registry={registry} setRegistry={setRegistry} apiOk={apiOk} />}
           {page === "ops" && <OpsCenter data={ops} add={opsAdd} del={opsDel} upd={opsUpd} settings={settings} />}
           {page === "deploys" && <DeployHistory deploys={deploys} />}
-          {page === "settings" && <Settings settings={settings} setSettings={s => { setSettings(prev => ({ ...prev, ...s })); if (apiOk) api.post("/settings", s).catch(() => { }); notify("Saved!"); }} stats={stats} />}
+          {page === "settings" && <Settings settings={settings} setSettings={handleSaveSettings} stats={stats} apiOk={apiOk} neonOk={neonOk} />}
         </div>
       </main>
 

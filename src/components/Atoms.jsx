@@ -70,7 +70,7 @@ export function Badge({ color, children }) {
 }
 
 export function Toast({ msg, type }) {
-    const c = type === "success" ? T.success : type === "danger" ? T.danger : T.primary;
+    const c = type === "success" ? T.success : type === "danger" ? T.danger : type === "warning" ? T.warning : T.primary;
     return (
         <div style={{
             position: "fixed", top: 24, right: 24, padding: "12px 20px", background: T.card,

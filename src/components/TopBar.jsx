@@ -2,7 +2,7 @@ import React from "react";
 import { THEME as T } from "../constants";
 import { Dot } from "./Atoms";
 
-export function TopBar({ stats, settings, deploys, apiOk }) {
+export function TopBar({ stats, settings, deploys, apiOk, neonOk }) {
     return (
         <div style={{
             height: 48, borderBottom: `1px solid ${T.border}`, display: "flex",
@@ -18,7 +18,7 @@ export function TopBar({ stats, settings, deploys, apiOk }) {
                 Deployed: <b style={{ color: T.success }}>{deploys?.length || 0}</b>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Dot c={apiOk ? T.success : T.warning} label={apiOk ? "D1 ✓" : "Local"} />
+                <Dot c={neonOk ? T.success : T.warning} label={neonOk ? "Neon ✓" : apiOk ? "API ✓" : "Local"} />
                 {settings.netlifyToken && <Dot c={T.success} label="Netlify" />}
                 <Dot c={settings.apiKey ? T.success : T.danger} label={settings.apiKey ? "AI OK" : "No AI"} />
                 <Dot c={settings.lcToken ? T.success : T.dim} label={settings.lcToken ? "LC ✓" : "LC"} />
