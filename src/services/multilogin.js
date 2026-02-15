@@ -146,16 +146,21 @@ async function mlxFetch(url, opts = {}, retryCount = 0) {
         if (r.status === 401 && retryCount === 0) {
             const isAuthPath = url.includes("/user/signin") || url.includes("/user/refresh_token") || url.includes("/workspace/automation_token");
             if (!isAuthPath) {
-                console.log(`MLX 401 on ${url}, attempting token refresh/retry...`);
+                console.warn(`[MLX] 401 on ${url}, attempting token refresh/retry...`);
                 const newToken = await ensureToken({ force: true });
                 if (newToken) {
+                    console.log(`[MLX] Got new token, retrying ${url}...`);
                     // Retry once with new token
                     const newOpts = { ...opts };
                     if (newOpts.headers) {
                         newOpts.headers = { ...newOpts.headers, "Authorization": `Bearer ${newToken}` };
                     }
                     return mlxFetch(url, newOpts, retryCount + 1);
+                } else {
+                    console.error(`[MLX] Failed to obtain new token after 401 on ${url}`);
                 }
+            } else {
+                console.error(`[MLX] 401 on Auth Path: ${url}`);
             }
         }
 
@@ -224,6 +229,8 @@ async function ensureToken(opts = {}) {
     // Prefer in-memory token if not forced and not locally expired
     if (!force && _token && !isTokenExpired()) return _token;
 
+    const oldToken = _token;
+
     // Try refresh if we have a token (either in-memory or saved)
     const saved = getSavedToken();
     const t = _token || saved;
@@ -239,9 +246,12 @@ async function ensureToken(opts = {}) {
         if (res.data?.token) return res.data.token;
     }
 
+    // If we're here, refresh/signin failed.
+    // If forced, we definitely don't want to return the old potentially invalid token.
+    if (force) return null;
+
     // Finally try just returning saved if we have nothing else and not forced
-    // (though if forced, we probably already tried refreshing it)
-    if (!force && saved && !_token) {
+    if (saved && !_token) {
         setToken(saved);
         return saved;
     }
