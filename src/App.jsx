@@ -22,7 +22,7 @@ const NEON_URL = import.meta.env.PUBLIC_NEON_URL || "";
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [sites, setSites] = useState([]);
-  const [ops, setOps] = useState({ domains: [], accounts: [], cfAccounts: [], profiles: [], payments: [], logs: [] });
+  const [ops, setOps] = useState({ domains: [], accounts: [], cfAccounts: [], registrarAccounts: [], profiles: [], payments: [], logs: [] });
   const [settings, setSettings] = useState(() => LS.get("settings") || {});
   const [stats, setStats] = useState({ builds: 0, spend: 0 });
   const [toast, setToast] = useState(null);
@@ -106,7 +106,7 @@ export default function App() {
         const data = await api.get("/init");
         if (!data.error) {
           if (data.sites) setSites(data.sites);
-          if (data.ops) setOps({ ...data.ops, cfAccounts: data.cfAccounts || [] });
+          if (data.ops) setOps({ ...data.ops, cfAccounts: data.cfAccounts || [], registrarAccounts: data.registrarAccounts || [] });
           if (data.settings) {
             // localStorage wins — user's local saves are most recent
             const merged = { ...data.settings, ...localSettings };
@@ -170,37 +170,44 @@ export default function App() {
     else if (apiOk) api.post("/deploys", d).catch(() => {});
   };
 
+  const resolveCollKey = (coll) => {
+    if (coll === "cf-accounts") return "cfAccounts";
+    if (coll === "registrar-accounts") return "registrarAccounts";
+    return coll;
+  };
+  const resolveEndpoint = (coll, id) => {
+    if (coll === "cf-accounts") return id ? `/cf-accounts/${id}` : "/cf-accounts";
+    if (coll === "registrar-accounts") return id ? `/registrar-accounts/${id}` : "/registrar-accounts";
+    return id ? `/ops/${coll}/${id}` : `/ops/${coll}`;
+  };
+
   const opsAdd = (coll, item) => {
-    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
+    const stateKey = resolveCollKey(coll);
     setOps(p => ({
-      ...p, [stateKey]: [item, ...p[stateKey]],
+      ...p, [stateKey]: [item, ...(p[stateKey] || [])],
       logs: [{ id: uid(), msg: `Added ${coll.slice(0, -1)}: ${item.label || item.domain || item.name || item.id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
-    const endpoint = coll === "cf-accounts" ? "/cf-accounts" : `/ops/${coll}`;
-    if (apiOk) api.post(endpoint, item).catch(() => {});
+    if (apiOk) api.post(resolveEndpoint(coll), item).catch(() => {});
   };
 
   const opsDel = (coll, id) => {
-    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
-    const item = ops[stateKey].find(i => i.id === id);
+    const stateKey = resolveCollKey(coll);
+    const item = (ops[stateKey] || []).find(i => i.id === id);
     setOps(p => ({
-      ...p, [stateKey]: p[stateKey].filter(i => i.id !== id),
+      ...p, [stateKey]: (p[stateKey] || []).filter(i => i.id !== id),
       logs: [{ id: uid(), msg: `Deleted: ${item?.label || item?.domain || id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
-    const endpoint = coll === "cf-accounts" ? `/cf-accounts/${id}` : `/ops/${coll}/${id}`;
-    if (apiOk) api.del(endpoint).catch(() => {});
+    if (apiOk) api.del(resolveEndpoint(coll, id)).catch(() => {});
   };
 
   const opsUpd = (coll, id, u) => {
-    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
+    const stateKey = resolveCollKey(coll);
     setOps(p => ({
       ...p,
       [stateKey]: (p[stateKey] || []).map(i => i.id === id ? { ...i, ...u } : i),
       logs: [{ id: uid(), msg: `Updated ${coll.slice(0, -1)}: ${id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
-    // Persist to API
-    const endpoint = coll === "cf-accounts" ? `/cf-accounts/${id}` : `/ops/${coll}/${id}`;
-    if (apiOk) api.put(endpoint, u).catch(() => {});
+    if (apiOk) api.put(resolveEndpoint(coll, id), u).catch(() => {});
   };
 
   const handleSaveSettings = async (s) => {

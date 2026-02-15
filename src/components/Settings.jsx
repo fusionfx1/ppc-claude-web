@@ -34,6 +34,8 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
     const [vpsAuthMethod, setVpsAuthMethod] = useState(settings.vpsAuthMethod || "key");
     const [vpsKey, setVpsKey] = useState(settings.vpsKey || "");
     const [vpsWorkerUrl, setVpsWorkerUrl] = useState(settings.vpsWorkerUrl || "");
+    const [vercelToken, setVercelToken] = useState(settings.vercelToken || "");
+    const [vercelTeamId, setVercelTeamId] = useState(settings.vercelTeamId || "");
 
     const [generatingToken, setGeneratingToken] = useState(false);
     const [testing, setTesting] = useState(null);
@@ -46,7 +48,7 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
     // Sync saved token into service on mount
     useEffect(() => {
         if (mlToken) multiloginApi.setToken(mlToken);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [mlToken]);
 
     const testApi = async () => {
         setTesting("api");
@@ -106,6 +108,7 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
         setTesting(null);
     };
 
+
     const testAws = async () => {
         setTesting("aws");
         try {
@@ -120,16 +123,33 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
         setTesting(null);
     };
 
+    const testVercel = async () => {
+        setTesting("vercel");
+        try {
+            const teamParam = vercelTeamId ? `?teamId=${vercelTeamId}` : "";
+            const res = await fetch(`https://api.vercel.com/v2/user${teamParam}`, {
+                headers: { Authorization: `Bearer ${vercelToken}` }
+            });
+            setTestResult(p => ({ ...p, vercel: res.ok ? "ok" : "fail" }));
+        } catch { setTestResult(p => ({ ...p, vercel: "fail" })); }
+        setTesting(null);
+    };
+
     const testLc = async () => {
         setTesting("lc");
         try {
-            const r = await api.get("/lc/teams");
+            // Save token to D1 first so Worker can use it
+            await save({ lcToken, lcTeamUuid });
+            // Small delay for D1 propagation
+            await new Promise(r => setTimeout(r, 500));
+            const r = await api.get("/lc/cards?per_page=1");
             if (r && !r.error) {
-                setTestResult(p => ({ ...p, lc: "ok" }));
+                const count = r.results?.length ?? 0;
+                setTestResult(p => ({ ...p, lc: "ok", lcDetail: `Connected — ${r.count ?? count} card(s)` }));
             } else {
-                setTestResult(p => ({ ...p, lc: "fail" }));
+                setTestResult(p => ({ ...p, lc: "fail", lcDetail: r.error || "Unknown error" }));
             }
-        } catch { setTestResult(p => ({ ...p, lc: "fail" })); }
+        } catch (e) { setTestResult(p => ({ ...p, lc: "fail", lcDetail: e.message })); }
         setTesting(null);
     };
 
@@ -259,8 +279,8 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 {testResult.cf && (
                     <div style={{ fontSize: 11, marginBottom: 8, color: testResult.cf === "ok" ? T.success : testResult.cf === "partial" ? T.warning : T.danger }}>
                         {testResult.cf === "ok" ? "✓ Pages + Workers OK" :
-                         testResult.cf === "partial" ? "⚠ Partial — " :
-                         "✗ Failed — "}
+                            testResult.cf === "partial" ? "⚠ Partial — " :
+                                "✗ Failed — "}
                         {testResult.cfDetail && <span style={{ fontFamily: "monospace", fontSize: 10 }}>{testResult.cfDetail}</span>}
                     </div>
                 )}
@@ -403,12 +423,37 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 </div>
                 {testResult.lc && (
                     <div style={{ fontSize: 11, marginBottom: 8, color: testResult.lc === "ok" ? T.success : T.danger }}>
-                        {testResult.lc === "ok" ? "✓ Connected" : "✗ Failed"}
+                        {testResult.lc === "ok" ? "✓ " : "✗ "}
+                        {testResult.lcDetail || (testResult.lc === "ok" ? "Connected" : "Failed")}
                     </div>
                 )}
                 <div style={{ display: "flex", gap: 6 }}>
                     <Btn variant="ghost" onClick={testLc} disabled={!lcToken || testing === "lc"} style={{ fontSize: 12 }}>{testing === "lc" ? "..." : "🔑 Test"}</Btn>
                     <Btn onClick={() => save({ lcToken, lcTeamUuid, defaultBinUuid, defaultBillingUuid })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
+                </div>
+            </Card>
+
+            {/* Vercel */}
+            <Card style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>Vercel</h3>
+                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>For static site deployments (▲)</p>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>API Token</label>
+                    <Inp type="password" value={vercelToken} onChange={setVercelToken} placeholder="vercel_..." />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                    <label style={labelStyle}>Team ID (Optional)</label>
+                    <Inp value={vercelTeamId} onChange={setVercelTeamId} placeholder="team_..." />
+                </div>
+                {testResult.vercel && (
+                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.vercel === "ok" ? T.success : T.danger }}>
+                        {testResult.vercel === "ok" ? "✓ " : "✗ "}
+                        {testResult.vercel === "ok" ? "Connected" : "Failed"}
+                    </div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                    <Btn variant="ghost" onClick={testVercel} disabled={!vercelToken || testing === "vercel"} style={{ fontSize: 12 }}>{testing === "vercel" ? "..." : "🔑 Test"}</Btn>
+                    <Btn onClick={() => save({ vercelToken, vercelTeamId })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
                 </div>
             </Card>
 
@@ -480,10 +525,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 {testResult.ml && (
                     <div style={{ fontSize: 11, marginBottom: 8, color: testResult.ml === "fail" || testResult.ml === "expired" || testResult.ml === "no-creds" ? T.danger : T.success }}>
                         {testResult.ml === "ok" ? "✓ Signed In — token acquired" :
-                         testResult.ml === "active" ? "✓ Token Valid — API connected" :
-                         testResult.ml === "expired" ? "✗ Token Expired — sign in or generate new" :
-                         testResult.ml === "no-creds" ? "✗ Enter token or email/password" :
-                         "✗ Connection Failed — check credentials"}
+                            testResult.ml === "active" ? "✓ Token Valid — API connected" :
+                                testResult.ml === "expired" ? "✗ Token Expired — sign in or generate new" :
+                                    testResult.ml === "no-creds" ? "✗ Enter token or email/password" :
+                                        "✗ Connection Failed — check credentials"}
                     </div>
                 )}
                 {/* Launcher status */}

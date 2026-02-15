@@ -139,9 +139,40 @@ export async function deploy(html, site, settings) {
         headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: true }),
       }
-    ).catch(() => {}); // Best-effort; deploy already succeeded
+    ).catch(() => { }); // Best-effort; deploy already succeeded
 
     return { success: true, url, deployId: scriptName, target: "cf-workers" };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Link a custom domain to a Cloudflare Worker.
+ */
+export async function addDomain(scriptName, domain, settings) {
+  const token = (settings.cfApiToken || "").trim();
+  const accountId = (settings.cfAccountId || "").trim();
+  if (!token || !accountId) return { success: false, error: "Missing creds" };
+
+  try {
+    const res = await fetch(`${getCfApiBase()}/accounts/${accountId}/workers/domains`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        account_id: accountId,
+        hostname: domain,
+        service: scriptName,
+        environment: "production"
+      }),
+    });
+
+    const data = await res.json();
+    if (data.success) return { success: true };
+    return { success: false, error: data.errors?.[0]?.message || "Failed" };
   } catch (e) {
     return { success: false, error: e.message };
   }

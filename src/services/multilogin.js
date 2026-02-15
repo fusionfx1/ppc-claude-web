@@ -16,7 +16,7 @@ import { getMlxApiBase } from "../utils/api-proxy.js";
 const LAUNCHER_BASE = "https://launcher.mlx.yt:45001";
 
 function getMLXBase() {
-  return getMlxApiBase();
+    return getMlxApiBase();
 }
 
 // Exposed for UI display
@@ -186,7 +186,7 @@ async function signin(email, password) {
 async function refreshToken(token) {
     const t = token || _token || getSavedToken();
     if (!t) return { error: "No token to refresh" };
-    const res = await mlxFetch(`${getMLXBase()}/user/refresh-token`, {
+    const res = await mlxFetch(`${getMLXBase()}/user/refresh_token`, {
         method: "POST",
         headers: authHeaders(t),
     });
@@ -203,23 +203,28 @@ async function refreshToken(token) {
 async function ensureToken() {
     // Prefer in-memory token
     if (_token && !isTokenExpired()) return _token;
-    // Try saved token from settings
+
+    // Try refresh if we have a token
     const saved = getSavedToken();
-    if (saved && !_token) {
-        setToken(saved);
-        return saved;
-    }
-    // Try refresh
-    if (_token || saved) {
-        const res = await refreshToken(_token || saved);
+    const t = _token || saved;
+    if (t) {
+        const res = await refreshToken(t);
         if (res.data?.token) return res.data.token;
     }
-    // Try auto-signin from settings
+
+    // Fallback: Try auto-signin from settings
     const s = getSettings();
     if (s.mlEmail && s.mlPassword) {
         const res = await signin(s.mlEmail, s.mlPassword);
         if (res.data?.token) return res.data.token;
     }
+
+    // Finally try just returning saved if not too old or if we have nothing else
+    if (saved && !_token) {
+        setToken(saved);
+        return saved;
+    }
+
     return null;
 }
 

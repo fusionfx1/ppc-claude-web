@@ -1,12 +1,30 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { THEME as T, COLORS } from "../constants";
 import { hsl } from "../utils";
 import { detectRisks } from "../utils/risk-engine";
+import { checkAll } from "../utils/health-check";
 import { Card, Btn, Badge, Dot } from "./Atoms";
+
+const STATUS_COLOR = { online: T.success, error: T.danger, offline: T.danger, unconfigured: T.dim };
+const STATUS_LABEL = { online: "Online", error: "Error", offline: "Offline", unconfigured: "Not Set" };
 
 export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = {}, apiOk, neonOk }) {
     const recent = sites.slice(0, 5);
     const risks = useMemo(() => detectRisks(ops), [ops]);
+    const [health, setHealth] = useState(null);
+    const [checking, setChecking] = useState(false);
+
+    const runChecks = useCallback(async () => {
+        setChecking(true);
+        try {
+            const result = await checkAll(settings, neonOk);
+            setHealth(result);
+        } catch { /* ignore */ }
+        setChecking(false);
+    }, [settings, neonOk]);
+
+    // Auto-check on mount
+    useEffect(() => { runChecks(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div style={{ animation: "fadeIn .3s ease" }}>
@@ -112,32 +130,55 @@ export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = 
                         </div>
                     </Card>
 
-                    {/* Infrastructure Health */}
+                    {/* Infrastructure Health — Live Checks */}
                     <Card>
-                        <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, textTransform: "uppercase" }}>System Health</h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Data Store</span>
-                                <Dot c={neonOk ? T.success : apiOk ? T.success : T.warning}
-                                     label={neonOk ? "Neon DB" : apiOk ? "API / D1" : "Local Only"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>CF Pages Deploy</span>
-                                <Dot c={settings.cfApiToken ? T.success : T.dim} label={settings.cfApiToken ? "Ready" : "Not Set"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Netlify Deploy</span>
-                                <Dot c={settings.netlifyToken ? T.success : T.dim} label={settings.netlifyToken ? "Ready" : "Not Set"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>LeadingCards API</span>
-                                <Dot c={settings.lcToken ? T.success : T.dim} label={settings.lcToken ? "Connected" : "Not Set"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Multilogin X</span>
-                                <Dot c={settings.mlToken ? T.success : T.dim} label={settings.mlToken ? "Connected" : "Not Set"} />
-                            </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                            <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, margin: 0, textTransform: "uppercase" }}>System Health</h3>
+                            <button onClick={runChecks} disabled={checking} style={{
+                                background: "none", border: `1px solid ${T.border}`, borderRadius: 5, padding: "3px 8px",
+                                color: checking ? T.dim : T.muted, cursor: checking ? "wait" : "pointer", fontSize: 10, fontWeight: 600,
+                            }}>{checking ? "Checking..." : "↻ Refresh"}</button>
                         </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {[
+                                { key: "worker", label: "Worker / D1", icon: "⚡" },
+                                { key: "neon", label: "Neon DB", icon: "🐘" },
+                                { key: "cloudflare", label: "Cloudflare", icon: "☁️" },
+                                { key: "netlify", label: "Netlify", icon: "🔺" },
+                                { key: "leadingCards", label: "LeadingCards", icon: "💳" },
+                                { key: "multilogin", label: "Multilogin X", icon: "👤" },
+                                { key: "aws", label: "AWS S3", icon: "📦" },
+                                { key: "vps", label: "VPS / SSH", icon: "🖥️" },
+                            ].map(svc => {
+                                const h = health?.[svc.key];
+                                const st = h?.status || "unconfigured";
+                                const c = STATUS_COLOR[st] || T.dim;
+                                const lbl = h ? (h.detail || STATUS_LABEL[st]) : (checking ? "..." : "—");
+                                return (
+                                    <div key={svc.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
+                                        <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <span style={{ fontSize: 13 }}>{svc.icon}</span> {svc.label}
+                                        </span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            {h?.ms > 0 && <span style={{ fontSize: 9, color: T.dim, fontFamily: "monospace" }}>{h.ms}ms</span>}
+                                            <Dot c={c} label={lbl} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {health && (() => {
+                            const vals = Object.values(health);
+                            const online = vals.filter(v => v.status === "online").length;
+                            const errors = vals.filter(v => v.status === "error").length;
+                            const total = vals.length;
+                            return (
+                                <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+                                    <span style={{ color: T.muted }}>{online}/{total} online</span>
+                                    {errors > 0 && <span style={{ color: T.danger, fontWeight: 600 }}>{errors} error{errors > 1 ? "s" : ""}</span>}
+                                </div>
+                            );
+                        })()}
                     </Card>
                 </div>
             </div>

@@ -32,3 +32,23 @@ export function getCfApiBase(/* settings */) {
 export function getMlxApiBase(/* settings */) {
   return `${WORKER_BASE}/api/proxy/mlx`;
 }
+
+/**
+ * Get Porkbun API base URL.
+ * All environments route through the Worker proxy to avoid CORS.
+ *
+ * Equivalent to: https://api.porkbun.com
+ */
+export function getPorkbunApiBase(/* settings */) {
+  return `${WORKER_BASE}/api/proxy/porkbun`;
+}
+
+/**
+ * Get Internet.bs API base URL.
+ * All environments route through the Worker proxy to avoid CORS.
+ *
+ * Equivalent to: https://api.internet.bs
+ */
+export function getInternetBsApiBase(/* settings */) {
+  return `${WORKER_BASE}/api/proxy/internetbs`;
+}

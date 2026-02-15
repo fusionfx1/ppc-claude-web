@@ -4,7 +4,7 @@
  * Each key is a file path, each value is the file content string.
  */
 
-import { COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants";
+import { COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants/index.js";
 
 function esc(str) {
   return String(str || "").replace(/`/g, "\\`").replace(/\$/g, "\\$");
@@ -467,36 +467,137 @@ const {
 </script>
 `;
 
+  // ─── src/components/Modal.astro ────────────────────────────
+  files["src/components/Modal.astro"] = `---
+interface Props {
+  id: string;
+  title: string;
+}
+const { id, title } = Astro.props;
+---
+
+<dialog id={id} class="modal-dialog p-0 rounded-xl border-none shadow-2xl backdrop:bg-gray-900/60 transition-all fixed inset-0 m-auto max-w-2xl w-[95%] max-h-[85vh] overflow-hidden">
+  <div class="flex flex-col h-full bg-white">
+    <header class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+      <h3 class="text-lg font-bold text-gray-900 tracking-tight">{title}</h3>
+      <button onclick="this.closest('dialog').close()" class="p-2 -mr-2 rounded-full hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-900 focus:outline-none" aria-label="Close modal">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="flex-1 overflow-y-auto px-6 py-6 text-sm text-gray-600 leading-relaxed compliance-content">
+      <slot />
+    </div>
+    <footer class="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+      <button onclick="this.closest('dialog').close()" class="bg-[var(--color-primary)] text-white px-5 py-2 rounded-lg font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus:ring-4 focus:ring-[var(--color-primary)]/20 shadow-sm">
+        Close
+      </button>
+    </footer>
+  </div>
+</dialog>
+
+<style is:global>
+  .modal-dialog::backdrop { opacity: 0; transition: opacity 0.3s ease; }
+  .modal-dialog[open]::backdrop { opacity: 1; }
+  .modal-dialog[open] { animation: modal-zoom 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes modal-zoom { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .compliance-content h4 { font-weight: 700; color: #111827; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1rem; }
+  .compliance-content h4:first-child { margin-top: 0; }
+  .compliance-content p { margin-bottom: 1rem; }
+  .compliance-content ul { margin-bottom: 1rem; list-style-type: disc; padding-left: 1.25rem; }
+  .compliance-content li { margin-bottom: 0.5rem; }
+</style>
+`;
+
+  // ─── src/components/LegalPopups.astro ──────────────────────
+  files["src/components/LegalPopups.astro"] = `---
+import Modal from './Modal.astro';
+const brand = '${brand}';
+const aprMin = ${site.aprMin || 5.99};
+const aprMax = ${site.aprMax || 35.99};
+---
+
+<Modal id="modal-how-it-works" title="How It Works">
+  <div class="space-y-6">
+    <div class="flex gap-4">
+      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 shrink-0">1</div>
+      <div>
+        <h4>Request Your Loan</h4>
+        <p>Complete our secure online form with basic information. It takes less than 2 minutes and won't affect your credit score.</p>
+      </div>
+    </div>
+    <div class="flex gap-4">
+      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 shrink-0">2</div>
+      <div>
+        <h4>Get Instant Matches</h4>
+        <p>Our platform connects you with lenders in real-time. If matched, you'll see loan offers with rates and terms customized for you.</p>
+      </div>
+    </div>
+    <div class="flex gap-4">
+      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 shrink-0">3</div>
+      <div>
+        <h4>Choose & Fund</h4>
+        <p>Review your offers, select the best one, and finalize the application on the lender's secure site. Funds are often deposited as soon as the next business day.</p>
+      </div>
+    </div>
+  </div>
+</Modal>
+
+<Modal id="modal-privacy" title="Privacy Policy">
+  <p class="text-xs text-gray-400">Last Updated: \${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+  <h4>1. Information We Collect</h4>
+  <p>We collect information you provide directly to us via our online form, including name, contact info, zip code, and loan preferences.</p>
+  <h4>2. How We Use Information</h4>
+  <p>We use your information to operate our platform, connect you with lenders, improve our services, and send marketing communications if opted-in.</p>
+  <h4>3. Sharing of Information</h4>
+  <p>We share your data with participating lenders and 3rd party service providers to facilitate your loan request. We do not sell your personal data to unrelated 3rd parties without your consent.</p>
+  <h4>4. Your Privacy Rights</h4>
+  <p>You may request to access, update, or delete your information at any time. You can opt-out of marketing communications by following the unsubscribe link in any email.</p>
+</Modal>
+
+<Modal id="modal-terms" title="Terms of Service">
+  <h4>1. Acceptance of Terms</h4>
+  <p>By using this website, you agree to be bound by these Terms of Service. If you do not agree, please do not use our site.</p>
+  <h4>2. Description of Service</h4>
+  <p>\${brand} is a lead generation platform, not a lender. We provide a connection service between consumers and potential loan providers.</p>
+  <h4>3. Eligibility</h4>
+  <p>You must be at least 18 years old and a legal resident of the United States to use our services.</p>
+  <h4>4. Disclaimers</h4>
+  <p>We do not guarantee that you will be approved for a loan or that any loan offer will have specific terms or rates.</p>
+</Modal>
+
+<Modal id="modal-disclosures" title="Legal Disclosures">
+  <h4>APR Disclosure</h4>
+  <p>Participating lenders may offer loans with Annual Percentage Rates (APRs) ranging from {aprMin}% to {aprMax}%. The actual rate depends on your creditworthiness, loan amount, and term. Borrows with excellent credit may receive better rates.</p>
+  <h4>Loan Repayment Periods</h4>
+  <p>Lenders on our platform generally offer repayment terms ranging from 61 days to 72 months. Availability of terms varies by lender and state.</p>
+  <h4>Representative Example</h4>
+  <p>If you borrow $5,000 over a 36-month term at an APR of 18.9%, you would pay $182.99 per month. Total repayment would be $6,587.64, with a total interest cost of $1,587.64.</p>
+  <h4>Google Ads Compliance</h4>
+  <p>Our service complies with Google Financial Services policies by providing clear disclosures on APR ranges, repayment terms, and privacy practices.</p>
+</Modal>
+`;
+
   // ─── src/components/ComplianceBlock.astro ───────────────────
   files["src/components/ComplianceBlock.astro"] = `---
 interface Props {
   companyName?: string;
-  aprMin?: number;
-  aprMax?: number;
-  apDisclosure?: boolean;
-  stateDisclosures?: boolean;
 }
-const {
-  companyName = '${companyName}',
-  aprMin = ${site.aprMin || 5.99},
-  aprMax = ${site.aprMax || 35.99},
-  apDisclosure = true,
-  stateDisclosures = true,
-} = Astro.props;
+const { companyName = '${companyName}' } = Astro.props;
 ---
 
-<footer class="w-full max-w-2xl mx-auto mt-12 px-4 pb-8" role="contentinfo" aria-label="Legal disclosures">
-  <div class="border-t border-gray-200 pt-6">
-    <div class="text-xs text-gray-500 leading-relaxed space-y-3" role="note">
-      {apDisclosure && (
-        <p><strong>APR Disclosure:</strong> Some lenders may offer loans with an Annual Percentage Rate (APR) between {aprMin}% and {aprMax}%. The APR depends on your credit score, income, debt, loan amount, and credit history. Only borrowers with excellent credit qualify for the lowest rates. All loans subject to credit review and approval.</p>
-      )}
-      <p><strong>Not a Lender:</strong> {companyName} is not a lender, does not broker loans, and does not make credit decisions. {companyName} provides a free service to connect consumers with lenders who may offer them loans.</p>
-      <p><strong>Credit Impact:</strong> Checking your rate will not affect your credit score. If you accept a loan offer, the lender will conduct a hard credit inquiry which may impact your score.</p>
-      {stateDisclosures && (
-        <p><strong>State Disclosures:</strong> Loans may not be available in all states. Availability and terms depend on your state of residence and applicable laws.</p>
-      )}
-      <p class="pt-2 text-gray-400"><small>&copy; {new Date().getFullYear()} {companyName}. All rights reserved.</small></p>
+<footer class="w-full max-w-2xl mx-auto mt-12 px-4 pb-12" role="contentinfo" aria-label="Legal disclosures">
+  <div class="border-t border-gray-200 pt-8">
+    <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <button onclick="document.getElementById('modal-privacy').showModal()" class="hover:text-[var(--color-primary)] transition-colors cursor-pointer">Privacy Policy</button>
+      <button onclick="document.getElementById('modal-terms').showModal()" class="hover:text-[var(--color-primary)] transition-colors cursor-pointer">Terms of Service</button>
+      <button onclick="document.getElementById('modal-disclosures').showModal()" class="hover:text-[var(--color-primary)] transition-colors cursor-pointer">Disclosures</button>
+    </div>
+
+    <div class="text-[10px] sm:text-xs text-gray-400 leading-relaxed text-center space-y-4" role="note">
+      <p><strong>Safe & Secure:</strong> We use industry-standard 256-bit SSL encryption to protect your data. Checking your rate will not affect your credit score.</p>
+      <p><strong>Not a Lender:</strong> \${companyName} is a lead generator, not a lender or loan broker. We provide a connection service. Any loan terms, rates, and fees are provided by the individual lender and are subject to credit approval and verification.</p>
+      <p><strong>APR & Terms:</strong> APR ranges and repayment terms vary by lender and state. Representative examples for a $5,000 loan over 36 months at 18.9% APR would result in 36 monthly payments of $182.99 ($6,587.64 total repayment).</p>
+      <p class="pt-4 text-[9px]">&copy; \${new Date().getFullYear()} \${companyName}. All rights reserved.</p>
     </div>
   </div>
 </footer>
@@ -525,7 +626,7 @@ export function getTrackingData(): Record<string, string> {
 export function sendBeacon(event: string, extra?: Record<string, string>): void {
   const url = (window as any).__TRACK_URL__ || '/track';
   const payload = { event, timestamp: new Date().toISOString(), click_id: getTrackingValue('click_id'), account_id: (window as any).__ACCOUNT_ID__ || '', page: window.location.pathname, ...extra };
-  try { const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' }); navigator.sendBeacon(url, blob); } catch {}
+  try { const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' }); navigator.sendBeacon(url, blob); } catch { }
 }
 `;
 
@@ -536,6 +637,7 @@ import ZipInput from '../components/ZipInput.astro';
 import AmountSlider from '../components/AmountSlider.astro';
 import CTAButton from '../components/CTAButton.astro';
 import ComplianceBlock from '../components/ComplianceBlock.astro';
+import LegalPopups from '../components/LegalPopups.astro';
 
 const accountId = import.meta.env.PUBLIC_ACCOUNT_ID || '';
 const trackUrl = import.meta.env.PUBLIC_TRACK_URL || '/track';
@@ -553,96 +655,48 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
   voluumDomain={voluumDomain}
   noindex={true}
 >
-  <main id="main-content" class="flex flex-col items-center px-4 py-8 sm:py-12">
+  <nav class="w-full bg-white/80 backdrop-blur-md h-16 sticky top-0 z-50 shadow-sm border-b border-gray-100">
+    <div class="max-w-5xl mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black shadow-lg shadow-[var(--color-primary)]/20 uppercase">
+          {siteName[0]}
+        </div>
+        <span class="font-bold text-gray-900 tracking-tight text-lg">{siteName}</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-8">
+        <button onclick="document.getElementById('modal-how-it-works').showModal()" class="text-xs font-bold text-gray-500 hover:text-[var(--color-primary)] transition-colors uppercase tracking-widest cursor-pointer">How It Works</button>
+        <button onclick="document.getElementById('modal-disclosures').showModal()" class="text-xs font-bold text-gray-500 hover:text-[var(--color-primary)] transition-colors uppercase tracking-widest cursor-pointer">Legal</button>
+        <button onclick="document.getElementById('hero-heading').scrollIntoView({ behavior: 'smooth' })" class="bg-[var(--color-primary)] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95">Apply Now</button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main-content" class="flex flex-col items-center px-4 py-8 sm:py-20 bg-gray-50/30">
 
     <!-- Hero -->
-    <section class="w-full max-w-lg text-center mb-8" aria-labelledby="hero-heading">
-      <h1 id="hero-heading" class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 leading-tight" style="text-wrap:balance">
+    <section class="max-w-2xl w-full text-center mb-12" aria-labelledby="hero-heading">
+      <h1 id="hero-heading" class="text-4xl sm:text-5xl font-black text-gray-900 mb-6 leading-tight tracking-tight" style="text-wrap:balance">
         ${h1}
       </h1>
-      <p class="text-base sm:text-lg text-gray-600 leading-relaxed" style="text-wrap:pretty">
+      <p class="text-lg sm:text-xl text-gray-500 leading-relaxed font-medium max-w-lg mx-auto" style="text-wrap:pretty">
         ${sub}
       </p>
     </section>
 
-    <!-- Trust Indicators -->
-    <section class="w-full max-w-md mb-8" aria-label="Trust indicators">
-      <ul class="flex justify-center gap-6 text-center text-sm text-gray-500 list-none p-0 m-0" role="list">
-        <li class="flex flex-col items-center">
-          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-          <span>256-bit SSL</span>
-        </li>
-        <li class="flex flex-col items-center">
-          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span>2-Min Process</span>
-        </li>
-        <li class="flex flex-col items-center">
-          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span>No Credit Impact</span>
-        </li>
-      </ul>
-    </section>
-
-    <!-- Form Card -->
-    <section class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-100 p-6 sm:p-8 mb-8" aria-labelledby="form-heading" role="form">
+    <!-- Form -->
+    <section class="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-gray-100 p-8 sm:p-12 mb-16 relative" aria-labelledby="form-heading" role="form">
       <h2 id="form-heading" class="sr-only">Loan Application Form</h2>
-      <div class="space-y-6">
-        <div>
-          <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--color-primary)] text-white text-sm font-bold" aria-hidden="true">1</span>
-            <span class="text-sm font-semibold text-gray-700">Choose your amount</span>
-          </div>
-          <AmountSlider />
-        </div>
-        <div>
-          <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--color-primary)] text-white text-sm font-bold" aria-hidden="true">2</span>
-            <span class="text-sm font-semibold text-gray-700">Enter your ZIP code</span>
-          </div>
-          <ZipInput />
-        </div>
-        <div class="pt-2">
-          <CTAButton leadsGateFormId={leadsGateFormId} />
-        </div>
+      <div class="space-y-10">
+        <div><AmountSlider /></div>
+        <div><ZipInput /></div>
+        <div><CTAButton leadsGateFormId={leadsGateFormId} /></div>
       </div>
-      <p class="mt-4 text-xs text-gray-400 text-center">
-        By clicking "${cta}" you agree to our
-        <a href="/terms" class="underline hover:text-gray-600 focus-visible:text-gray-600">Terms</a> and
-        <a href="/privacy" class="underline hover:text-gray-600 focus-visible:text-gray-600">Privacy Policy</a>.
-        Checking rates won't affect your credit score.
-      </p>
-    </section>
-
-    <!-- How It Works -->
-    <section class="w-full max-w-lg mb-8" aria-labelledby="how-it-works-heading">
-      <h2 id="how-it-works-heading" class="text-xl font-bold text-center text-gray-900 mb-6">How It Works</h2>
-      <ol class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center list-none p-0 m-0" role="list">
-        <li class="p-4">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
-            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-          </div>
-          <h3 class="text-sm font-semibold text-gray-800 mb-1">Fill Out Form</h3>
-          <p class="text-xs text-gray-500">Answer a few quick questions about your loan needs.</p>
-        </li>
-        <li class="p-4">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
-            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-          </div>
-          <h3 class="text-sm font-semibold text-gray-800 mb-1">Get Matched</h3>
-          <p class="text-xs text-gray-500">We connect you with lenders competing for your business.</p>
-        </li>
-        <li class="p-4">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
-            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </div>
-          <h3 class="text-sm font-semibold text-gray-800 mb-1">Choose Your Offer</h3>
-          <p class="text-xs text-gray-500">Compare rates and terms, then pick the best deal for you.</p>
-        </li>
-      </ol>
     </section>
 
     <ComplianceBlock companyName={companyName} />
   </main>
+  
+  <LegalPopups />
 </BaseLayout>
 `;
 

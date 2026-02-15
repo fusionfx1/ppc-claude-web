@@ -43,8 +43,77 @@ export const RADIUS = [
 ];
 
 export const NETWORKS_AFF = ["LeadsGate", "ZeroParallel", "LeadStack", "ClickDealer", "Everflow", "Custom"];
-export const REGISTRARS = ["Namecheap", "GoDaddy", "Cloudflare", "Porkbun", "Other"];
+export const REGISTRARS = ["Porkbun", "Internet.bs", "Cloudflare", "Namecheap", "GoDaddy", "Other"];
 export const STATUSES = ["active", "paused", "suspended", "setup", "expired"];
+
+/** Domain Registrar providers with API support */
+export const REGISTRAR_PROVIDERS = [
+    {
+        id: "porkbun",
+        name: "Porkbun",
+        icon: "\uD83D\uDC37",
+        hasApi: true,
+        apiType: "JSON REST",
+        fields: [
+            { key: "apiKey", label: "API Key", type: "password", placeholder: "pk1_xxxxxxxxxx" },
+            { key: "secretKey", label: "Secret API Key", type: "password", placeholder: "sk1_xxxxxxxxxx" },
+        ],
+        features: ["register", "check", "updateNs", "listDomains", "autoRenew", "dns"],
+        docsUrl: "https://porkbun.com/api/json/v3/documentation",
+        pricingNote: ".com from $9.68/yr",
+    },
+    {
+        id: "internetbs",
+        name: "Internet.bs",
+        icon: "\uD83C\uDF10",
+        hasApi: true,
+        apiType: "REST (form-encoded)",
+        fields: [
+            { key: "apiKey", label: "API Key", type: "password", placeholder: "Your Internet.bs API Key" },
+            { key: "secretKey", label: "Password", type: "password", placeholder: "Your Internet.bs API Password" },
+            { key: "accountId", label: "Clone Contacts Domain (optional)", type: "text", placeholder: "existing-domain.com for contact clone" },
+        ],
+        features: ["register", "check", "updateNs", "listDomains", "dns", "registrarLock", "privateWhois"],
+        docsUrl: "https://internetbs.net/ResellerRegistrarDomainNameAPI/",
+        pricingNote: ".com from ~$8.49/yr — reseller pricing",
+    },
+    {
+        id: "cloudflare",
+        name: "Cloudflare Registrar",
+        icon: "\u2601\uFE0F",
+        hasApi: true,
+        apiType: "REST v4",
+        fields: [
+            { key: "apiToken", label: "API Token", type: "password", placeholder: "Bearer token (Zone:Edit)" },
+            { key: "accountId", label: "Account ID", type: "text", placeholder: "32 hex chars", validate: /^[0-9a-f]{32}$/i },
+        ],
+        features: ["listDomains", "updateSettings"],
+        docsUrl: "https://developers.cloudflare.com/registrar/",
+        pricingNote: "At-cost pricing (~$9.15 .com)",
+    },
+    {
+        id: "namecheap",
+        name: "Namecheap",
+        icon: "\uD83D\uDCDB",
+        hasApi: false,
+        apiType: "XML (requires IP whitelist)",
+        fields: [],
+        features: [],
+        docsUrl: "https://www.namecheap.com/support/api/intro/",
+        pricingNote: ".com from $10.87/yr — manual NS update required",
+    },
+    {
+        id: "godaddy",
+        name: "GoDaddy",
+        icon: "\uD83C\uDF10",
+        hasApi: false,
+        apiType: "REST (restrictive terms)",
+        fields: [],
+        features: [],
+        docsUrl: "https://developer.godaddy.com/",
+        pricingNote: "Higher pricing — manual management",
+    },
+];
 
 export const COPY_SETS = [
     { id: "smart", brand: "ElasticCredits", h1: "A Smarter Way", h1span: "to Borrow", sub: "Get approved in minutes. Funds as fast as next business day.", cta: "Check My Rate", badge: "4,200+ funded this month" },

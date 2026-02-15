@@ -47,8 +47,9 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
         setOpenDeploy(null);
         setDeploying({ siteId: site.id, target });
         try {
-            const html = generateLP(site);
-            const result = await deployTo(target, html, site, settings);
+            const isModernTarget = ["vercel", "netlify", "cf-pages"].includes(target);
+            const content = isModernTarget ? generateAstroProject(site) : generateLP(site);
+            const result = await deployTo(target, content, site, settings);
             if (result.success) {
                 setDeployUrls(p => ({
                     ...p,

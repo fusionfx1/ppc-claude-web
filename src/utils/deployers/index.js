@@ -9,6 +9,7 @@ import * as netlify from "./netlify.js";
 import * as cfWorkers from "./cf-workers.js";
 import * as s3Cloudfront from "./s3-cloudfront.js";
 import * as vpsSsh from "./vps-ssh.js";
+import * as vercel from "./vercel.js";
 
 const DEPLOYERS = {
   "cf-pages": cfPages,
@@ -16,6 +17,7 @@ const DEPLOYERS = {
   "cf-workers": cfWorkers,
   "s3-cloudfront": s3Cloudfront,
   "vps-ssh": vpsSsh,
+  "vercel": vercel,
 };
 
 export const DEPLOY_TARGETS = [
@@ -23,6 +25,7 @@ export const DEPLOY_TARGETS = [
   { id: "netlify", label: "Netlify", icon: "🔺", priority: 2, description: "Backup — diversify footprint" },
   { id: "cf-workers", label: "CF Workers Sites", icon: "⚡", priority: 4, description: "Edge logic — A/B test, geo-redirect" },
   { id: "s3-cloudfront", label: "S3 + CloudFront", icon: "🪣", priority: 5, description: "AWS — US-focused, low latency" },
+  { id: "vercel", label: "Vercel", icon: "▲", priority: 3, description: "Reliable — standard static hosting" },
   { id: "vps-ssh", label: "VPS (SSH)", icon: "🖥️", priority: 6, description: "Self-managed server, full control" },
 ];
 
@@ -69,6 +72,8 @@ function isTargetConfigured(target, settings) {
       return !!(settings.awsAccessKey && settings.awsSecretKey && settings.s3Bucket);
     case "vps-ssh":
       return !!(settings.vpsHost && settings.vpsUser && settings.vpsPath && (settings.vpsWorkerUrl || settings.workerBaseUrl));
+    case "vercel":
+      return !!settings.vercelToken;
     default:
       return false;
   }

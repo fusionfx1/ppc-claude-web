@@ -36,10 +36,10 @@ function md5(data) {
     0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
   ];
   const S = [
-    7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
-    5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
-    4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
-    6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21,
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+    5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
   ];
 
   // Pre-processing: add padding
@@ -129,10 +129,22 @@ export async function deploy(html, site, settings) {
       }
     }
 
-    // ── Step 2: Compute MD5 hashes ─────────────────────────────────
+    // ── Step 2: Prepare files and compute MD5 hashes ────────────────
     const encoder = new TextEncoder();
-    const indexData = encoder.encode(html);
-    const indexHash = md5(indexData);
+    const inputFiles = typeof content === "string" ? { "index.html": content } : content;
+
+    const manifest = {};
+    const filesToUpload = {}; // hash -> Uint8Array
+
+    for (const [path, body] of Object.entries(inputFiles)) {
+      const data = encoder.encode(body);
+      const hash = md5(data);
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+      manifest[normalizedPath] = hash;
+      filesToUpload[hash] = data;
+    }
+
+    const allHashes = Object.values(manifest);
 
     // ── Step 3: Get upload JWT token ───────────────────────────────
     const tokenRes = await cfFetch(
@@ -148,26 +160,31 @@ export async function deploy(html, site, settings) {
     // ── Step 4: Check which files need uploading ───────────────────
     const checkMissing = await cfFetch(
       `${cfBase}/pages/assets/check-missing`,
-      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: [indexHash] }) }
+      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: allHashes }) }
     );
     const missingHashes = checkMissing.json?.result || [];
 
     // ── Step 5: Upload missing files ───────────────────────────────
     if (missingHashes.length > 0) {
-      // Convert file content to base64 safely (spread operator fails > 65KB)
-      let b64 = "";
-      const CHUNK = 0x8000; // 32KB chunks
-      for (let i = 0; i < indexData.length; i += CHUNK) {
-        b64 += String.fromCharCode.apply(null, indexData.subarray(i, i + CHUNK));
+      const uploadPayload = [];
+      for (const hash of missingHashes) {
+        const data = filesToUpload[hash];
+        let b64 = "";
+        const CHUNK = 0x8000;
+        for (let i = 0; i < data.length; i += CHUNK) {
+          b64 += String.fromCharCode.apply(null, data.subarray(i, i + CHUNK));
+        }
+        b64 = btoa(b64);
+        uploadPayload.push({
+          key: hash,
+          value: b64,
+          metadata: { contentType: "text/plain" }, // Generalized; CF detects by extension or manifest
+          base64: true,
+        });
       }
-      b64 = btoa(b64);
-      const uploadPayload = [{
-        key: indexHash,
-        value: b64,
-        metadata: { contentType: "text/html" },
-        base64: true,
-      }];
 
+      // If many files, Cloudflare might require multiple upload calls, but we assume small Astro projects for now.
+      // Maximum payload is 100MB, individual file max is 25MB.
       const uploadRes = await cfFetch(
         `${cfBase}/pages/assets/upload`,
         { method: "POST", headers: jwtAuth, body: JSON.stringify(uploadPayload) }
@@ -180,15 +197,14 @@ export async function deploy(html, site, settings) {
     // ── Step 6: Register hashes (upsert) ───────────────────────────
     await cfFetch(
       `${cfBase}/pages/assets/upsert-hashes`,
-      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: [indexHash] }) }
+      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: allHashes }) }
     );
 
     // ── Step 7: Create deployment ──────────────────────────────────
-    const manifest = { "/index.html": indexHash };
     const formData = new FormData();
     formData.append("manifest", JSON.stringify(manifest));
     formData.append("branch", "main");
-    formData.append("commit_message", `Deploy ${site.domain || site.brand || "LP"} — ${new Date().toISOString()}`);
+    formData.append("commit_message", `Deploy Astro — ${new Date().toISOString()}`);
 
     const deployRes = await fetch(
       `${projectsUrl}/${projectName}/deployments`,
@@ -208,6 +224,32 @@ export async function deploy(html, site, settings) {
     const url = deployData.result?.url || `https://${projectName}.pages.dev`;
 
     return { success: true, url, deployId, target: "cf-pages" };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Link a custom domain to a Cloudflare Pages project.
+ */
+export async function addDomain(projectName, domain, settings) {
+  const token = (settings.cfApiToken || "").trim();
+  const accountId = (settings.cfAccountId || "").trim();
+  if (!token || !accountId) return { success: false, error: "Missing creds" };
+
+  try {
+    const res = await fetch(`${getCfApiBase()}/accounts/${accountId}/pages/projects/${projectName}/domains`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ name: domain }),
+    });
+
+    const data = await res.json();
+    if (data.success) return { success: true };
+    return { success: false, error: data.errors?.[0]?.message || "Failed" };
   } catch (e) {
     return { success: false, error: e.message };
   }
