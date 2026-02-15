@@ -138,9 +138,27 @@ function authHeaders(token) {
     return { ...HEADERS_JSON, "Authorization": `Bearer ${token || _token}` };
 }
 
-async function mlxFetch(url, opts = {}) {
+async function mlxFetch(url, opts = {}, retryCount = 0) {
     try {
         const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(15000) });
+
+        // Handle 401: Token might be expired
+        if (r.status === 401 && retryCount === 0) {
+            const isAuthPath = url.includes("/user/signin") || url.includes("/user/refresh_token") || url.includes("/workspace/automation_token");
+            if (!isAuthPath) {
+                console.log(`MLX 401 on ${url}, attempting token refresh/retry...`);
+                const newToken = await ensureToken({ force: true });
+                if (newToken) {
+                    // Retry once with new token
+                    const newOpts = { ...opts };
+                    if (newOpts.headers) {
+                        newOpts.headers = { ...newOpts.headers, "Authorization": `Bearer ${newToken}` };
+                    }
+                    return mlxFetch(url, newOpts, retryCount + 1);
+                }
+            }
+        }
+
         if (!r.ok) {
             const text = await r.text().catch(() => "");
             return { error: `HTTP ${r.status}`, detail: text, status: r.status };
@@ -200,11 +218,13 @@ async function refreshToken(token) {
  * Ensure we have a valid token; refresh if close to expiry.
  * Returns the current token string or null.
  */
-async function ensureToken() {
-    // Prefer in-memory token
-    if (_token && !isTokenExpired()) return _token;
+async function ensureToken(opts = {}) {
+    const force = opts.force || false;
 
-    // Try refresh if we have a token
+    // Prefer in-memory token if not forced and not locally expired
+    if (!force && _token && !isTokenExpired()) return _token;
+
+    // Try refresh if we have a token (either in-memory or saved)
     const saved = getSavedToken();
     const t = _token || saved;
     if (t) {
@@ -219,13 +239,14 @@ async function ensureToken() {
         if (res.data?.token) return res.data.token;
     }
 
-    // Finally try just returning saved if not too old or if we have nothing else
-    if (saved && !_token) {
+    // Finally try just returning saved if we have nothing else and not forced
+    // (though if forced, we probably already tried refreshing it)
+    if (!force && saved && !_token) {
         setToken(saved);
         return saved;
     }
 
-    return null;
+    return _token || null;
 }
 
 /**
