@@ -34,6 +34,8 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
     const [vpsAuthMethod, setVpsAuthMethod] = useState(settings.vpsAuthMethod || "key");
     const [vpsKey, setVpsKey] = useState(settings.vpsKey || "");
     const [vpsWorkerUrl, setVpsWorkerUrl] = useState(settings.vpsWorkerUrl || "");
+    const [cfD1DatabaseId, setCfD1DatabaseId] = useState(settings.cfD1DatabaseId || "");
+    const [cfD1DatabaseName, setCfD1DatabaseName] = useState(settings.cfD1DatabaseName || "lp-factory-db");
 
     const [generatingToken, setGeneratingToken] = useState(false);
     const [testing, setTesting] = useState(null);
@@ -256,6 +258,19 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                     <Inp value={cfAccountId} onChange={setCfAccountId} placeholder="32-char hex account ID"
                         style={cfAccountId && !/^[0-9a-f]{32}$/i.test(cfAccountId.trim()) ? { borderColor: T.danger } : undefined} />
                 </div>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>D1 Database Name</label>
+                    <Inp value={cfD1DatabaseName} onChange={setCfD1DatabaseName} placeholder="lp-factory-db" />
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>D1 Database ID {cfD1DatabaseId && (
+                        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cfD1DatabaseId.trim())
+                            ? <span style={{ color: T.success, fontSize: 10 }}>✓ Valid UUID</span>
+                            : <span style={{ color: T.danger, fontSize: 10 }}>✗ Invalid UUID format</span>
+                    )}</label>
+                    <Inp value={cfD1DatabaseId} onChange={setCfD1DatabaseId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        style={cfD1DatabaseId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cfD1DatabaseId.trim()) ? { borderColor: T.danger } : undefined} />
+                </div>
                 {testResult.cf && (
                     <div style={{ fontSize: 11, marginBottom: 8, color: testResult.cf === "ok" ? T.success : testResult.cf === "partial" ? T.warning : T.danger }}>
                         {testResult.cf === "ok" ? "✓ Pages + Workers OK" :
@@ -272,7 +287,7 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                             setTestResult(p => ({ ...p, cf: "fail", cfDetail: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` }));
                             return;
                         }
-                        save({ cfApiToken, cfAccountId: cleanId });
+                        save({ cfApiToken, cfAccountId: cleanId, cfD1DatabaseId, cfD1DatabaseName });
                     }} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
                 </div>
             </Card>

@@ -18,7 +18,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "lp-factory-db"
-database_id = "YOUR_D1_DATABASE_ID"  # Replace after `wrangler d1 create lp-factory-db`
+database_id = "3b560509-5df3-436b-97e5-fbc32f2e59a5"
 
 # Worker routes — attach to your domains
 # Uncomment and configure per domain:
