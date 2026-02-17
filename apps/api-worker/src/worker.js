@@ -1542,11 +1542,6 @@ export default {
         });
         writeEntries.push([`${basePath}/deploy-manifest.json`, JSON.stringify(manifest, null, 2)]);
 
-        // Ensure apply.html exists (copy from index.html if missing)
-        if (!files["apply.html"] && files["index.html"]) {
-          writeEntries.push([`${basePath}/apply.html`, String(files["index.html"] ?? "")]);
-        }
-
         try {
           await ensureGithubBranch(token, repoOwner, repoName, deployBranch, sourceBranch);
 
