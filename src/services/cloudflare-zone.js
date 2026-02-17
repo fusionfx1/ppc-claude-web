@@ -343,7 +343,8 @@ export async function checkDnsPropagation(domain, recordType = "A", expectedValu
         value: answer,
         matches,
       });
-    } catch {
+    } catch (e) {
+      console.warn(`[CloudflareZone] DNS check failed for ${server.name}:`, e?.message || e);
       results.push({
         server: server.name,
         success: false,
@@ -378,7 +379,8 @@ export async function resolveDomain(domain, recordType = "A") {
     );
     const data = await res.json();
     return data.Answer?.[0]?.data || null;
-  } catch {
+  } catch (e) {
+    console.warn("[CloudflareZone] Domain resolution failed:", e?.message || e);
     return null;
   }
 }

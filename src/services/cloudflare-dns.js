@@ -459,7 +459,8 @@ async function resolveIp(url) {
     });
     const data = await res.json();
     return data.Answer?.[0]?.data;
-  } catch {
+  } catch (e) {
+    console.warn("[CloudflareDNS] Failed to resolve IP:", e?.message || e);
     return null;
   }
 }

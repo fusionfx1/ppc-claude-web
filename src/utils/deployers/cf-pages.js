@@ -223,8 +223,13 @@ export async function deploy(content, site, settings) {
     if (!deployRes.ok) {
       const errBody = await deployRes.text().catch(() => "");
       let errMsg = `HTTP ${deployRes.status}`;
-      try { const j = JSON.parse(errBody); errMsg = j.errors?.[0]?.message || errMsg; }
-      catch { errMsg = errBody.slice(0, 200) || errMsg; }
+      try {
+        const j = JSON.parse(errBody);
+        errMsg = j.errors?.[0]?.message || errMsg;
+      } catch (e) {
+        console.warn("[CFPages] Failed to parse error response:", e?.message || e);
+        errMsg = errBody.slice(0, 200) || errMsg;
+      }
       return { success: false, error: `Deploy failed: ${errMsg}` };
     }
 

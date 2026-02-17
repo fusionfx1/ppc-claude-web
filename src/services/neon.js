@@ -27,8 +27,10 @@ export function initNeon(connectionString) {
   }
 }
 
-/** Check if Neon is connected */
-export function isNeonReady() {
+/** Check if Neon is connected
+ * @internal - used only within this module
+ */
+function isNeonReady() {
   return sql !== null;
 }
 

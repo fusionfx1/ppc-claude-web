@@ -146,8 +146,9 @@ export async function deploy(html, site, settings) {
           const match = cfText.match(/<Id>([^<]+)<\/Id>/);
           cfInvalidationId = match?.[1];
         }
-      } catch {
+      } catch (e) {
         // CloudFront invalidation is optional; don't fail the deploy
+        console.warn("[S3Deploy] CloudFront invalidation failed (non-critical):", e?.message || e);
       }
     }
 

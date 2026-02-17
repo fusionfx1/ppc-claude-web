@@ -234,7 +234,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 });
 
                 setDomainDeployMap(byDomain);
-            } catch {
+            } catch (e) {
+                console.warn("[OpsCenter] Failed to load domain deploys:", e?.message || e);
                 if (!cancelled) setDomainDeployMap({});
             }
         };

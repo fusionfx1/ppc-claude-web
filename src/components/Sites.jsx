@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { THEME as T, COLORS } from "../constants";
 import { LS, uid, now, hsl } from "../utils";
 import { makeThemeJson, htmlToZip, astroProjectToZip } from "../utils/lp-generator";
@@ -271,15 +272,16 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                 </div>
             )}
 
-            {/* Preview Modal */}
-            {preview && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 1000, display: "flex", flexDirection: "column", padding: 24, animation: "fadeIn .2s ease" }}>
+            {/* Preview Modal - rendered via portal to ensure proper stacking */}
+            {preview && createPortal(
+                <div onClick={(e) => { if (e.target === e.currentTarget) setPreview(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 10000, display: "flex", flexDirection: "column", padding: 24, animation: "fadeIn .2s ease" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
                         <div style={{ color: "#fff", fontWeight: 700 }}>Preview: {preview.brand}</div>
                         <Btn variant="danger" onClick={() => setPreview(null)} style={{ padding: "4px 12px" }}>Close</Btn>
                     </div>
                     <iframe title="preview" style={{ flex: 1, background: "#fff", borderRadius: 12, border: "none" }} srcDoc={generateHtmlByTemplate(preview)} />
-                </div>
+                </div>,
+                document.body
             )}
 
             </div>

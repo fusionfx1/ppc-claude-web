@@ -84,7 +84,7 @@ async function requestApi(endpoint, formData, accountId) {
       try {
         const parsed = JSON.parse(res.detail || "{}");
         message = parsed?.error || parsed?.message || message;
-      } catch {
+      } catch (parseErr) {
         if (res.detail) message = res.detail;
       }
       return { success: false, error: message };
@@ -92,6 +92,7 @@ async function requestApi(endpoint, formData, accountId) {
 
     return res;
   } catch (e) {
+    console.warn("[Registrar] API request failed:", e?.message || e);
     return { error: e.message, success: false };
   }
 }

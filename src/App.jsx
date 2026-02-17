@@ -129,8 +129,9 @@ export default function App() {
 
         setApiOk(true);
       }
-    } catch {
+    } catch (e) {
       // API unreachable — keep Neon/localStorage state
+      console.warn("[App] API unreachable, using local state:", e?.message || e);
     }
 
     setLoading(false);
@@ -340,7 +341,10 @@ export default function App() {
         const res = await api.post("/settings", s);
         if (res && !res.error) { notify("Saved!"); }
         else { notify("Saved locally — API sync failed", "warning"); }
-      } catch { notify("Saved locally — API unreachable", "warning"); }
+      } catch (e) {
+        console.warn("[App] Settings save failed:", e?.message || e);
+        notify("Saved locally — API unreachable", "warning");
+      }
     } else {
       // No backend connected — still show success since localStorage save worked
       notify("Saved locally ✓", "success");

@@ -3,7 +3,7 @@ import { generateAstroProject } from "./astro-generator";
 
 export const DEFAULT_TEMPLATE_ID = "classic";
 
-export function resolveTemplateId(site) {
+function resolveTemplateId(site) {
   return site?.templateId || DEFAULT_TEMPLATE_ID;
 }
 

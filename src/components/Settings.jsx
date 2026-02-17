@@ -70,7 +70,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 10, messages: [{ role: "user", content: "OK" }] })
             });
             setTestResult(p => ({ ...p, api: r.ok ? "ok" : "fail" }));
-        } catch { setTestResult(p => ({ ...p, api: "fail" })); }
+        } catch (e) {
+            console.warn("[Settings] API test failed:", e?.message || e);
+            setTestResult(p => ({ ...p, api: "fail" }));
+        }
         setTesting(null);
     };
 
@@ -113,7 +116,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 : "https://api.netlify.com/api/v1/sites?per_page=1";
             const r = await fetch(url, { headers: { Authorization: `Bearer ${netlifyToken}` } });
             setTestResult(p => ({ ...p, netlify: r.ok ? "ok" : "fail" }));
-        } catch { setTestResult(p => ({ ...p, netlify: "fail" })); }
+        } catch (e) {
+            console.warn("[Settings] Netlify test failed:", e?.message || e);
+            setTestResult(p => ({ ...p, netlify: "fail" }));
+        }
         setTesting(null);
     };
 
@@ -161,8 +167,9 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
             const r = await fetch(`https://${s3Bucket}.s3.${awsRegion}.amazonaws.com/?list-type=2&max-keys=1`);
             // This will likely fail due to CORS, so we just check if the bucket exists
             setTestResult(p => ({ ...p, aws: r.status !== 0 ? "ok" : "fail" }));
-        } catch {
+        } catch (e) {
             // CORS error usually means the bucket exists
+            console.warn("[Settings] AWS test failed (likely CORS):", e?.message || e);
             setTestResult(p => ({ ...p, aws: "cors" }));
         }
         setTesting(null);
@@ -177,7 +184,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
             } else {
                 setTestResult(p => ({ ...p, lc: "fail" }));
             }
-        } catch { setTestResult(p => ({ ...p, lc: "fail" })); }
+        } catch (e) {
+            console.warn("[Settings] LC test failed:", e?.message || e);
+            setTestResult(p => ({ ...p, lc: "fail" }));
+        }
         setTesting(null);
     };
 
@@ -266,7 +276,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
             } else {
                 setTestResult(p => ({ ...p, ml: "no-creds" }));
             }
-        } catch { setTestResult(p => ({ ...p, ml: "fail" })); }
+        } catch (e) {
+            console.warn("[Settings] Multilogin test failed:", e?.message || e);
+            setTestResult(p => ({ ...p, ml: "fail" }));
+        }
         setTesting(null);
     };
 
@@ -648,7 +661,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                                 const res = await multiloginApi.getFolders();
                                 const fdata = res.data?.folders || res.data || [];
                                 setFolders(Array.isArray(fdata) ? fdata : []);
-                            } catch { setFolders([]); }
+                            } catch (e) {
+                                console.warn("[Settings] Failed to load folders:", e?.message || e);
+                                setFolders([]);
+                            }
                             setLoadingFolders(false);
                         }} disabled={loadingFolders || (!mlToken && !mlEmail)} style={{ fontSize: 11, whiteSpace: "nowrap" }}>
                             {loadingFolders ? "..." : "📂 Browse"}
@@ -711,7 +727,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                             } else {
                                 setTestResult(p => ({ ...p, ml: "fail" }));
                             }
-                        } catch { setTestResult(p => ({ ...p, ml: "fail" })); }
+                        } catch (e) {
+                            console.warn("[Settings] Auto token generation failed:", e?.message || e);
+                            setTestResult(p => ({ ...p, ml: "fail" }));
+                        }
                         setGeneratingToken(false);
                     }} disabled={(!mlToken && !mlEmail) || generatingToken} style={{ fontSize: 12 }}>
                         {generatingToken ? "..." : "🔑 Generate 30-day Token"}

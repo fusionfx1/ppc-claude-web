@@ -26,8 +26,9 @@ const DEPLOYERS = {
 const DEPLOY_HISTORY_KEY = "lpf2-deploy-history";
 const DEPLOY_CONFIGS_KEY = "lpf2-deploy-configs";
 
-// Worker API base URL
-const WORKER_BASE = "https://lp-factory-api.songsawat-w.workers.dev";
+// Worker API base URL - use environment variable
+const WORKER_BASE = import.meta.env?.VITE_API_BASE?.replace(/\/api$/, '') ||
+    "https://lp-factory-api.songsawat-w.workers.dev";
 
 /**
  * Helper to make API calls to the Worker
@@ -223,8 +224,9 @@ function isTargetConfigured(target, settings) {
 
 /**
  * Save a deployment record to history (localStorage fallback)
+ * @internal - used only within this module
  */
-export function saveDeploymentRecord(record) {
+function saveDeploymentRecord(record) {
   try {
     const history = LS.get(DEPLOY_HISTORY_KEY) || [];
     history.unshift(record);
@@ -324,8 +326,9 @@ export async function getDeploymentStats(domain = null) {
 
 /**
  * Clear deployment history
+ * @internal - used only within this module
  */
-export function clearDeploymentHistory() {
+function clearDeploymentHistory() {
   try {
     LS.set(DEPLOY_HISTORY_KEY, []);
   } catch (e) {
@@ -393,8 +396,9 @@ export async function getDeployConfig(domainId, target) {
 
 /**
  * Get all deploy configs for a domain
+ * @internal - used only within this module
  */
-export async function getAllDeployConfigs(domainId) {
+async function getAllDeployConfigs(domainId) {
   try {
     const params = new URLSearchParams();
     params.set("domainId", domainId);
