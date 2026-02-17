@@ -118,24 +118,29 @@ jobs:
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
           echo "providers=$(jq -c '[.targets[].provider]' "$M")" >> "$GITHUB_OUTPUT"
 
-          # Determine actual deployment targets based on provider type
-          # If provider is "github-actions", check which platform fields are present
-          HAS_CLOUDFLARE=$(jq -r '.targets[] | select(.provider=="cloudflare-pages" or (.provider=="github-actions" and .projectName != null)) | "cloudflare"' "$M" | head -n1)
-          HAS_NETLIFY=$(jq -r '.targets[] | select(.provider=="netlify" or (.provider=="github-actions" and .siteId != null)) | "netlify"' "$M" | head -n1)
-          HAS_VERCEL=$(jq -r '.targets[] | select(.provider=="vercel" or (.provider=="github-actions" and .vercelProjectId != null)) | "vercel"' "$M" | head -n1)
+          # Check if provider is "github-actions" - this means deploy to ALL configured platforms
+          # The actual platform targets are determined by which secrets are available
+          HAS_GITHUB_ACTIONS=$(jq -r '.targets[] | select(.provider=="github-actions") | "yes"' "$M" | head -n1)
 
-          # Set deploy_targets output
-          DEPLOY_TARGETS="${HAS_CLOUDFLARE} ${HAS_NETLIFY} ${HAS_VERCEL}"
-          DEPLOY_TARGETS=$(echo "$DEPLOY_TARGETS" | jq -Rsc 'split(" ") | map(select(length > 0)) | join(",")')
+          # If github-actions provider is used, deploy to all platforms that have secrets configured
+          if [ -n "$HAS_GITHUB_ACTIONS" ]; then
+            DEPLOY_TARGETS="cloudflare,netlify,vercel"
+          else
+            # Otherwise check specific providers
+            HAS_CLOUDFLARE=$(jq -r '.targets[] | select(.provider=="cloudflare-pages") | "cloudflare"' "$M" | head -n1)
+            HAS_NETLIFY=$(jq -r '.targets[] | select(.provider=="netlify") | "netlify"' "$M" | head -n1)
+            HAS_VERCEL=$(jq -r '.targets[] | select(.provider=="vercel") | "vercel"' "$M" | head -n1)
+            DEPLOY_TARGETS="${HAS_CLOUDFLARE} ${HAS_NETLIFY} ${HAS_VERCEL}"
+            DEPLOY_TARGETS=$(echo "$DEPLOY_TARGETS" | jq -Rsc 'split(" ") | map(select(length > 0)) | join(",")')
+          fi
           echo "deploy_targets=$DEPLOY_TARGETS" >> "$GITHUB_OUTPUT"
 
           # Debug output
           echo "### 🎯 Deployment Targets" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Provider | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|--------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| cloudflare-pages | ${HAS_CLOUDFLARE:+✅ detected} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| netlify | ${HAS_NETLIFY:+✅ detected} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| vercel | ${HAS_VERCEL:+✅ detected} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Setting | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Provider | github-actions (multi-provider) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Deploy Targets | $DEPLOY_TARGETS |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat "$M" >> "$GITHUB_STEP_SUMMARY"
@@ -173,11 +178,20 @@ jobs:
         run: |
           set -euo pipefail
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
-          # Get projectName from either cloudflare-pages or github-actions provider
-          PROJECT=$(jq -r '.targets[] | select(.provider=="cloudflare-pages" or (.provider=="github-actions" and .projectName != null)) | .projectName // empty' "$M" | head -n1)
+
+          # Get projectName - try manifest first, then use defaults
+          PROJECT=$(jq -r '.targets[] | select(.provider=="cloudflare-pages" or .provider=="github-actions") | .projectName // empty' "$M" | head -n1)
+
+          # Fallback to project name from secrets or defaults
+          if [ -z "$PROJECT" ]; then
+            PROJECT="${CF_PROJECT_NAME:-lp-factory}"
+            echo "Using default project name: $PROJECT"
+          fi
+
           echo "Deploying to Cloudflare Pages project: $PROJECT"
           wrangler pages deploy "sites/${{ matrix.site_id }}" --project-name "$PROJECT"
         env:
+          CF_PROJECT_NAME: ${{ vars.CF_PROJECT_NAME }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
@@ -189,11 +203,25 @@ jobs:
         run: |
           set -euo pipefail
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
-          # Get siteId from either netlify or github-actions provider
-          SITE_ID=$(jq -r '.targets[] | select(.provider=="netlify" or (.provider=="github-actions" and .siteId != null)) | .siteId // empty' "$M" | head -n1)
+
+          # Get siteId - try manifest first, then use secrets/defaults
+          SITE_ID=$(jq -r '.targets[] | select(.provider=="netlify" or .provider=="github-actions") | .siteId // empty' "$M" | head -n1)
+
+          # Fallback to site ID from secrets
+          if [ -z "$SITE_ID" ]; then
+            SITE_ID="${NETLIFY_SITE_ID}"
+            echo "Using site ID from secrets: $SITE_ID"
+          fi
+
+          if [ -z "$SITE_ID" ]; then
+            echo "❌ Error: No Netlify Site ID found in manifest or secrets"
+            exit 1
+          fi
+
           echo "Deploying to Netlify site: $SITE_ID"
           netlify deploy --dir="sites/${{ matrix.site_id }}" --site "$SITE_ID" --prod
         env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
 
       - name: Deploy to Vercel
@@ -204,7 +232,15 @@ jobs:
         run: |
           set -euo pipefail
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
-          PROJECT_ID=$(jq -r '.targets[] | select(.provider=="vercel" or (.provider=="github-actions" and .vercelProjectId != null)) | .vercelProjectId // empty' "$M" | head -n1)
+
+          # Get project ID - try manifest first, then use secrets
+          PROJECT_ID=$(jq -r '.targets[] | select(.provider=="vercel" or .provider=="github-actions") | .vercelProjectId // empty' "$M" | head -n1)
+
+          # Fallback to project ID from secrets
+          if [ -z "$PROJECT_ID" ]; then
+            PROJECT_ID="${VERCEL_PROJECT_ID}"
+          fi
+
           echo "Deploying to Vercel project: ${PROJECT_ID:-default}"
           vercel deploy "sites/${{ matrix.site_id }}" --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
         env:
