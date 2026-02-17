@@ -93,6 +93,7 @@ jobs:
           set -euo pipefail
           DIR="sites/${{ matrix.site_id }}"
           test -f "$DIR/index.html"
+          test -f "$DIR/apply.html"
 
   deploy:
     needs: [detect-sites, validate-manifest]
