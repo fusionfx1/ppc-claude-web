@@ -1878,6 +1878,14 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 const [loading, setLoading] = useState(false);
                 const [connectionStatus, setConnectionStatus] = useState(null);
 
+                // Load tables function
+                const loadTables = async () => {
+                    const result = await getTables();
+                    if (result.success) {
+                        setTables(result.tables || []);
+                    }
+                };
+
                 // Test connection on mount
                 useEffect(() => {
                     const testConn = async () => {
@@ -1888,14 +1896,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                         }
                     };
                     testConn();
+                    // eslint-disable-next-line react-hooks/exhaustive-deps
                 }, []);
-
-                const loadTables = async () => {
-                    const result = await getTables();
-                    if (result.success) {
-                        setTables(result.tables || []);
-                    }
-                };
 
                 const handleRunQuery = async () => {
                     if (!sqlQuery.trim()) return;

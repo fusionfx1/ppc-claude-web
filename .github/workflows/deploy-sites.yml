@@ -26,6 +26,8 @@ on:
 
 permissions:
   contents: read
+  deployments: write
+  actions: read
 
 jobs:
   detect-sites:
