@@ -116,22 +116,24 @@ jobs:
         run: |
           set -euo pipefail
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
-          echo "providers=$(jq -c '[.targets[].provider]' "$M")" >> "$GITHUB_OUTPUT"
 
-          # Check if provider is "github-actions" - this means deploy to ALL configured platforms
-          # The actual platform targets are determined by which secrets are available
-          HAS_GITHUB_ACTIONS=$(jq -r '.targets[] | select(.provider=="github-actions") | "yes"' "$M" | head -n1)
+          # Get providers array
+          PROVIDERS=$(jq -c '[.targets[].provider]' "$M")
+          echo "providers=$PROVIDERS" >> "$GITHUB_OUTPUT"
 
-          # If github-actions provider is used, deploy to all platforms that have secrets configured
-          if [ -n "$HAS_GITHUB_ACTIONS" ]; then
+          # Check if github-actions is in the providers list
+          if echo "$PROVIDERS" | jq -e '.[] | select(. == "github-actions")' > /dev/null 2>&1; then
             DEPLOY_TARGETS="cloudflare,netlify,vercel"
+            echo "Detected github-actions provider - deploying to all platforms"
           else
-            # Otherwise check specific providers
-            HAS_CLOUDFLARE=$(jq -r '.targets[] | select(.provider=="cloudflare-pages") | "cloudflare"' "$M" | head -n1)
-            HAS_NETLIFY=$(jq -r '.targets[] | select(.provider=="netlify") | "netlify"' "$M" | head -n1)
-            HAS_VERCEL=$(jq -r '.targets[] | select(.provider=="vercel") | "vercel"' "$M" | head -n1)
-            DEPLOY_TARGETS="${HAS_CLOUDFLARE} ${HAS_NETLIFY} ${HAS_VERCEL}"
-            DEPLOY_TARGETS=$(echo "$DEPLOY_TARGETS" | jq -Rsc 'split(" ") | map(select(length > 0)) | join(",")')
+            # Check for specific providers
+            HAS_CLOUDFLARE=$(echo "$PROVIDERS" | jq -r '.[] | select(. == "cloudflare-pages")' | head -n1)
+            HAS_NETLIFY=$(echo "$PROVIDERS" | jq -r '.[] | select(. == "netlify")' | head -n1)
+            HAS_VERCEL=$(echo "$PROVIDERS" | jq -r '.[] | select(. == "vercel")' | head -n1)
+            DEPLOY_TARGETS=""
+            [ -n "$HAS_CLOUDFLARE" ] && DEPLOY_TARGETS="cloudflare"
+            [ -n "$HAS_NETLIFY" ] && DEPLOY_TARGETS="${DEPLOY_TARGETS}${DEPLOY_TARGETS:+,}netlify"
+            [ -n "$HAS_VERCEL" ] && DEPLOY_TARGETS="${DEPLOY_TARGETS}${DEPLOY_TARGETS:+,}vercel"
           fi
           echo "deploy_targets=$DEPLOY_TARGETS" >> "$GITHUB_OUTPUT"
 
@@ -139,7 +141,7 @@ jobs:
           echo "### 🎯 Deployment Targets" >> "$GITHUB_STEP_SUMMARY"
           echo "| Setting | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Provider | github-actions (multi-provider) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Providers | $PROVIDERS |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Deploy Targets | $DEPLOY_TARGETS |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
