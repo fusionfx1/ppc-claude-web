@@ -6,6 +6,7 @@ on:
       - main
       - 'release/**'
       - 'deploy/auto'
+      - 'Deploy-pipeline-Git-push'
     paths:
       - 'sites/**'
       - 'schemas/deploy-manifest.schema.json'
