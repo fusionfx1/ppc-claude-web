@@ -1516,7 +1516,7 @@ export default {
           brand: body.brand || "",
           templateId: body.templateId || "classic",
           environment,
-          targets: Array.isArray(body.targets) && body.targets.length ? body.targets : [{ provider: "cloudflare-pages", projectName: `site-${siteId}` }],
+          targets: Array.isArray(body.targets) && body.targets.length ? body.targets : [{ provider: "github-actions" }],
           build: {
             entry: "index.html",
             extraFiles: Object.keys(files).filter(name => name !== "index.html"),
