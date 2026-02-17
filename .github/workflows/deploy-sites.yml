@@ -137,7 +137,7 @@ jobs:
           node-version: 20
 
       - name: Install deploy CLIs
-        run: npm i -g wrangler netlify-cli vercel
+        run: npm i -g wrangler netlify-cli vercel && sudo apt-get update && sudo apt-get install -y jq
 
       - name: Deploy to Cloudflare Pages
         id: cfpages
