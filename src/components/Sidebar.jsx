@@ -50,6 +50,7 @@ export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, togg
         { id: "variant", icon: "🎨", label: "Variant Studio" },
         { id: "ops", icon: "🏢", label: "Ops Center" },
         { id: "deploys", icon: "🚀", label: "Deploys" },
+        { id: "docs", icon: "📚", label: "API Docs", external: true, href: "/docs" },
         { id: "settings", icon: "⚙️", label: "Settings" },
     ];
 
@@ -77,8 +78,10 @@ export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, togg
                 <nav style={{ padding: "8px 6px", flex: 1 }}>
                     {items.map(it => {
                         const active = page === it.id;
+                        const ButtonWrapper = it.external ? 'a' : 'button';
+                        const buttonProps = it.external ? { href: it.href, target: "_blank", rel: "noopener noreferrer" } : {};
                         return (
-                            <button key={it.id} onClick={() => it.action ? it.action() : setPage(it.id)} style={{
+                            <ButtonWrapper key={it.id} onClick={() => !it.external && (it.action ? it.action() : setPage(it.id))} {...buttonProps} style={{
                                 width: "100%", display: "flex", alignItems: "center", gap: 10,
                                 padding: collapsed ? "10px 0" : "9px 12px", justifyContent: collapsed ? "center" : "flex-start",
                                 marginBottom: 2, border: "none", borderRadius: 7,
@@ -86,7 +89,7 @@ export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, togg
                                 color: active ? T.primaryH : T.muted, cursor: "pointer",
                                 fontSize: 13, fontWeight: active ? 600 : 500,
                                 borderLeft: active ? `3px solid ${T.primary}` : "3px solid transparent",
-                                transition: "all .15s",
+                                transition: "all .15s", textDecoration: "none",
                             }}>
                                 <span style={{ fontSize: 15, flexShrink: 0, width: 20, textAlign: "center" }}>{it.icon}</span>
                                 {!collapsed && <span style={{ flex: 1, textAlign: "left", whiteSpace: "nowrap" }}>{it.label}</span>}
@@ -94,7 +97,8 @@ export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, togg
                                     background: T.primary, color: "#fff", fontSize: 10, fontWeight: 700,
                                     padding: "1px 6px", borderRadius: 8, minWidth: 18, textAlign: "center",
                                 }}>{it.badge}</span>}
-                            </button>
+                                {it.external && !collapsed && <span style={{ fontSize: 10, opacity: 0.5 }}>↗</span>}
+                            </ButtonWrapper>
                         );
                     })}
                 </nav>

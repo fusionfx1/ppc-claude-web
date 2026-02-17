@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand — warm professional palette for loan LP */
+  --color-background: oklch(98.5% 0.002 250);
+  --color-foreground: oklch(15% 0.01 260);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(15% 0.01 260);
+  --color-primary: oklch(45% 0.18 260);
+  --color-primary-foreground: oklch(99% 0 0);
+  --color-secondary: oklch(55% 0.2 145);
+  --color-secondary-foreground: oklch(99% 0 0);
+  --color-muted: oklch(95% 0.005 250);
+  --color-muted-foreground: oklch(45% 0.01 260);
+  --color-accent: oklch(92% 0.03 80);
+  --color-accent-foreground: oklch(25% 0.06 80);
+  --color-destructive: oklch(60% 0.18 25);
+  --color-border: oklch(90% 0.01 250);
+  --color-input: oklch(90% 0.01 250);
+  --color-ring: oklch(45% 0.18 260);
+  --color-trust: oklch(55% 0.15 145);
+
+  --radius: 0.625rem;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scroll for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus ring utility */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Hide scrollbar for slider inputs */
+input[type="range"]::-webkit-slider-runnable-track {
+  border-radius: 9999px;
+}

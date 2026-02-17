@@ -1,0 +1,33 @@
+---
+interface Props {
+  headline: string;
+  subheadline: string;
+  badge?: string;
+}
+
+const { headline, subheadline, badge } = Astro.props;
+---
+
+<section class="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background pt-12 pb-8 sm:pt-16 sm:pb-12">
+  <!-- Subtle radial glow -->
+  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/8 rounded-full blur-[120px] pointer-events-none" aria-hidden="true"></div>
+
+  <div class="relative max-w-2xl mx-auto px-4 text-center">
+    {badge && (
+      <div class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span>{badge}</span>
+      </div>
+    )}
+
+    <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.15] text-foreground" style="text-wrap:balance">
+      {headline}
+    </h1>
+
+    <p class="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto" style="text-wrap:pretty">
+      {subheadline}
+    </p>
+  </div>
+</section>

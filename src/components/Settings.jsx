@@ -10,6 +10,7 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
     const [apiKey, setApiKey] = useState(settings.apiKey || "");
     const [geminiKey, setGeminiKey] = useState(settings.geminiKey || "");
     const [netlifyToken, setNetlifyToken] = useState(settings.netlifyToken || "");
+    const [netlifyTeamSlug, setNetlifyTeamSlug] = useState(settings.netlifyTeamSlug || "");
     const [lcToken, setLcToken] = useState(settings.lcToken || "");
     const [lcTeamUuid, setLcTeamUuid] = useState(settings.lcTeamUuid || "");
     const [defaultBinUuid, setDefaultBinUuid] = useState(settings.defaultBinUuid || "");
@@ -34,6 +35,19 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
     const [vpsAuthMethod, setVpsAuthMethod] = useState(settings.vpsAuthMethod || "key");
     const [vpsKey, setVpsKey] = useState(settings.vpsKey || "");
     const [vpsWorkerUrl, setVpsWorkerUrl] = useState(settings.vpsWorkerUrl || "");
+    // Vercel deploy token
+    const [vercelToken, setVercelToken] = useState(settings.vercelToken || "");
+    // Git push pipeline settings
+    const [githubToken, setGithubToken] = useState(settings.githubToken || "");
+    const [githubRepoOwner, setGithubRepoOwner] = useState(settings.githubRepoOwner || "");
+    const [githubRepoName, setGithubRepoName] = useState(settings.githubRepoName || "");
+    const [githubRepoBranch, setGithubRepoBranch] = useState(settings.githubRepoBranch || "main");
+    const [githubDeployWorkflow, setGithubDeployWorkflow] = useState(settings.githubDeployWorkflow || "deploy-sites.yml");
+    // D1 Database credentials
+    const [d1AccountId, setD1AccountId] = useState(settings.d1AccountId || "");
+    const [d1DatabaseId, setD1DatabaseId] = useState(settings.d1DatabaseId || "");
+    const [d1ApiToken, setD1ApiToken] = useState(settings.d1ApiToken || "");
+    const [d1Result, setD1Result] = useState(null);
 
     const [generatingToken, setGeneratingToken] = useState(false);
     const [testing, setTesting] = useState(null);
@@ -60,10 +74,44 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
         setTesting(null);
     };
 
+    const testGitHub = async () => {
+        setTesting("github");
+        try {
+            const owner = String(githubRepoOwner || "").trim();
+            const repo = String(githubRepoName || "").trim();
+            const token = String(githubToken || "").trim();
+            if (!owner || !repo || !token) {
+                setTestResult(p => ({ ...p, github: "fail", githubDetail: "Fill token + owner + repo" }));
+                setTesting(null);
+                return;
+            }
+            const r = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            });
+            if (!r.ok) {
+                const text = await r.text().catch(() => "");
+                setTestResult(p => ({ ...p, github: "fail", githubDetail: text || `HTTP ${r.status}` }));
+            } else {
+                setTestResult(p => ({ ...p, github: "ok", githubDetail: `${owner}/${repo}` }));
+            }
+        } catch (e) {
+            setTestResult(p => ({ ...p, github: "fail", githubDetail: e.message }));
+        }
+        setTesting(null);
+    };
+
     const testNetlify = async () => {
         setTesting("netlify");
         try {
-            const r = await fetch("https://api.netlify.com/api/v1/sites?per_page=1", { headers: { Authorization: `Bearer ${netlifyToken}` } });
+            const teamSlug = String(netlifyTeamSlug || "").trim();
+            const url = teamSlug
+                ? `https://api.netlify.com/api/v1/sites?per_page=1&account_slug=${encodeURIComponent(teamSlug)}`
+                : "https://api.netlify.com/api/v1/sites?per_page=1";
+            const r = await fetch(url, { headers: { Authorization: `Bearer ${netlifyToken}` } });
             setTestResult(p => ({ ...p, netlify: r.ok ? "ok" : "fail" }));
         } catch { setTestResult(p => ({ ...p, netlify: "fail" })); }
         setTesting(null);
@@ -130,6 +178,55 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 setTestResult(p => ({ ...p, lc: "fail" }));
             }
         } catch { setTestResult(p => ({ ...p, lc: "fail" })); }
+        setTesting(null);
+    };
+
+    const testD1 = async () => {
+        setTesting("d1");
+        let requestUrl = "";
+        try {
+            // Validate Account ID format
+            const cleanId = d1AccountId.trim();
+            if (!/^[0-9a-f]{32}$/i.test(cleanId)) {
+                setD1Result({ success: false, error: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` });
+                setTesting(null);
+                return;
+            }
+
+            // Test by listing D1 databases in the account
+            const cfBase = getCfApiBase();
+            requestUrl = `${cfBase}/accounts/${cleanId}/d1/database`;
+            const res = await fetch(requestUrl, {
+                headers: { Authorization: `Bearer ${d1ApiToken}` },
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                const msg = err.errors?.[0]?.message || `HTTP ${res.status}`;
+                setD1Result({ success: false, error: msg, url: requestUrl });
+            } else {
+                const data = await res.json();
+                // Verify the specific database exists if databaseId is provided
+                if (d1DatabaseId) {
+                    const dbExists = data.result?.some(db => db.uuid === d1DatabaseId || db.id === d1DatabaseId);
+                    if (dbExists) {
+                        const dbInfo = data.result.find(db => db.uuid === d1DatabaseId || db.id === d1DatabaseId);
+                        setD1Result({ success: true, database: dbInfo });
+                    } else {
+                        setD1Result({ success: false, error: `Database ID ${d1DatabaseId} not found in account` });
+                    }
+                } else {
+                    setD1Result({ success: true, count: data.result?.length || 0 });
+                }
+            }
+        } catch (e) {
+            setD1Result({
+                success: false,
+                error: `${e.message || "Failed to fetch"}. Check API base/proxy URL and CORS/network.`,
+                detail: e?.stack || null,
+                url: requestUrl || null,
+            });
+        }
         setTesting(null);
     };
 
@@ -213,6 +310,57 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 <Btn onClick={() => save({ neonUrl })} disabled={saving || !neonUrl} style={{ fontSize: 12 }}>{saving ? "Connecting..." : "💾 Save & Connect"}</Btn>
             </Card>
 
+            <Card style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>☁️ Cloudflare D1 Database</h3>
+                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Edge SQL database for low-latency queries</p>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>Account ID {d1AccountId && (
+                        /^[0-9a-f]{32}$/i.test(d1AccountId.trim())
+                            ? <span style={{ color: T.success, fontSize: 10 }}>✓ {d1AccountId.trim().length} chars</span>
+                            : <span style={{ color: T.danger, fontSize: 10 }}>✗ {d1AccountId.trim().length}/32 chars</span>
+                    )}</label>
+                    <Inp value={d1AccountId} onChange={setD1AccountId} placeholder="32-char hex account ID" />
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>Database ID (UUID)</label>
+                    <Inp value={d1DatabaseId} onChange={setD1DatabaseId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>API Token</label>
+                    <Inp type="password" value={d1ApiToken} onChange={setD1ApiToken} placeholder="Cloudflare API Token with D1 permissions" />
+                </div>
+                {d1Result && (
+                    <div style={{ fontSize: 11, marginBottom: 8, color: d1Result.success ? T.success : T.danger }}>
+                        <div>
+                            {d1Result.success
+                                ? `✓ Connected${d1Result.database ? ` to "${d1Result.database.name}"` : d1Result.count !== undefined ? ` (${d1Result.count} databases)` : ""}`
+                                : `✗ ${d1Result.error}`}
+                        </div>
+                        {!d1Result.success && d1Result.url && (
+                            <div style={{ marginTop: 4, fontSize: 10, color: T.dim, fontFamily: "monospace", wordBreak: "break-all" }}>
+                                URL: {d1Result.url}
+                            </div>
+                        )}
+                        {!d1Result.success && d1Result.detail && (
+                            <div style={{ marginTop: 2, fontSize: 10, color: T.dim, fontFamily: "monospace", wordBreak: "break-all" }}>
+                                Detail: {d1Result.detail}
+                            </div>
+                        )}
+                    </div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                    <Btn variant="ghost" onClick={testD1} disabled={!d1AccountId || !d1ApiToken || testing === "d1"} style={{ fontSize: 12 }}>{testing === "d1" ? "..." : "🔑 Test"}</Btn>
+                    <Btn onClick={() => {
+                        const cleanId = d1AccountId.trim();
+                        if (cleanId && !/^[0-9a-f]{32}$/i.test(cleanId)) {
+                            setD1Result({ success: false, error: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` });
+                            return;
+                        }
+                        save({ d1AccountId: cleanId, d1DatabaseId, d1ApiToken });
+                    }} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
+                </div>
+            </Card>
+
             {/* ══════════════ AI PROVIDERS ══════════════ */}
             <div style={sectionHeaderStyle}>🤖 AI Providers</div>
 
@@ -282,11 +430,21 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>🔺 Netlify</h3>
                 <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Backup deploy — diversify footprint (P2)</p>
                 <Inp type="password" value={netlifyToken} onChange={setNetlifyToken} placeholder="nfp_..." style={{ marginBottom: 8 }} />
+                <Inp value={netlifyTeamSlug} onChange={setNetlifyTeamSlug} placeholder="Team slug (optional) e.g. my-agency" style={{ marginBottom: 8 }} />
                 {settings.netlifyToken && <div style={{ fontSize: 11, color: T.success, marginBottom: 8 }}>✓ Configured</div>}
                 <div style={{ display: "flex", gap: 6 }}>
                     <Btn variant="ghost" onClick={testNetlify} disabled={!netlifyToken || testing === "netlify"} style={{ fontSize: 12 }}>{testing === "netlify" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => save({ netlifyToken })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
+                    <Btn onClick={() => save({ netlifyToken, netlifyTeamSlug })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
                 </div>
+            </Card>
+
+            {/* P3: Vercel Deploy Token */}
+            <Card style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>▲ Vercel</h3>
+                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Fast edge deployments with preview support (P3)</p>
+                <Inp type="password" value={vercelToken} onChange={setVercelToken} placeholder="vercel_..." style={{ marginBottom: 8 }} />
+                {settings.vercelToken && <div style={{ fontSize: 11, color: T.success, marginBottom: 8 }}>✓ Configured</div>}
+                <Btn onClick={() => save({ vercelToken })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
             </Card>
 
             {/* P5: AWS S3 + CloudFront */}
@@ -378,6 +536,48 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                 <Btn onClick={() => save({ vpsHost, vpsPort, vpsUser, vpsPath, vpsAuthMethod, vpsKey, vpsWorkerUrl })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save VPS Config"}</Btn>
             </Card>
 
+            {/* P7: Git Push Pipeline */}
+            <Card style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>🧬 Git Push Pipeline</h3>
+                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Commit artifacts to GitHub, then let Actions deploy to targets</p>
+                <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>GitHub Token (repo scope)</label>
+                    <Inp type="password" value={githubToken} onChange={setGithubToken} placeholder="ghp_..." />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <div>
+                        <label style={labelStyle}>Repo Owner</label>
+                        <Inp value={githubRepoOwner} onChange={setGithubRepoOwner} placeholder="org-or-user" />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Repo Name</label>
+                        <Inp value={githubRepoName} onChange={setGithubRepoName} placeholder="repo-name" />
+                    </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <div>
+                        <label style={labelStyle}>Branch</label>
+                        <Inp value={githubRepoBranch} onChange={setGithubRepoBranch} placeholder="main" />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Workflow File</label>
+                        <Inp value={githubDeployWorkflow} onChange={setGithubDeployWorkflow} placeholder="deploy-sites.yml" />
+                    </div>
+                </div>
+                {testResult.github && (
+                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.github === "ok" ? T.success : T.danger }}>
+                        {testResult.github === "ok" ? "✓ GitHub repo accessible" : "✗ GitHub check failed"}
+                        {testResult.githubDetail && (
+                            <span style={{ fontFamily: "monospace", fontSize: 10 }}> — {testResult.githubDetail}</span>
+                        )}
+                    </div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                    <Btn variant="ghost" onClick={testGitHub} disabled={!githubToken || !githubRepoOwner || !githubRepoName || testing === "github"} style={{ fontSize: 12 }}>{testing === "github" ? "..." : "🔑 Test"}</Btn>
+                    <Btn onClick={() => save({ githubToken, githubRepoOwner, githubRepoName, githubRepoBranch, githubDeployWorkflow })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
+                </div>
+            </Card>
+
             {/* ══════════════ EXTERNAL SERVICES ══════════════ */}
             <div style={sectionHeaderStyle}>🔗 External Services</div>
 
@@ -419,8 +619,8 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                     Direct API integration — <a href="https://multilogin.com/help/en_US/api" target="_blank" rel="noopener" style={{ color: T.accent }}>docs</a>
                 </p>
                 <div style={{ fontSize: 10, color: T.muted, marginBottom: 12, padding: "6px 8px", background: "rgba(99,102,241,0.06)", borderRadius: 6, border: `1px solid rgba(99,102,241,0.12)` }}>
-                    Remote API: <code style={{ fontSize: 10 }}>{multiloginApi.MLX_BASE}</code> &nbsp;|&nbsp;
-                    Launcher: <code style={{ fontSize: 10 }}>{multiloginApi.LAUNCHER_BASE}</code>
+                    Remote API: <code style={{ fontSize: 10 }}>{multiloginApi.MLX_BASE || "https://api.multilogin.com"}</code> &nbsp;|&nbsp;
+                    Launcher: <code style={{ fontSize: 10 }}>{multiloginApi.LAUNCHER_BASE || "https://launcher.mlx.yt:45001"}</code>
                 </div>
 
                 <div style={{ marginBottom: 8 }}>

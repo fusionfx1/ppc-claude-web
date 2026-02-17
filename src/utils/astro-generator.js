@@ -64,15 +64,45 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   output: 'static',
   site: process.env.SITE_URL || 'https://${domain}',
+  build: {
+    assets: '_assets',
+    inlineStylesheets: 'always',
+  },
   vite: {
     plugins: [tailwindcss()],
-    build: { rollupOptions: { output: { manualChunks: undefined } } },
+    build: {
+      sourcemap: false,
+      minify: 'terser',
+      cssMinify: true,
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) return 'vendor';
+          }
+        }
+      }
+    }
   },
   integrations: [
     sitemap(),
-    compress({ CSS: true, HTML: { removeAttributeQuotes: false, removeComments: true }, Image: false, JavaScript: true, SVG: true }),
+    compress({
+      CSS: true,
+      HTML: { 
+        removeAttributeQuotes: false, 
+        removeComments: true,
+        collapseWhitespace: true,
+        minifyJS: true,
+        minifyCSS: true 
+      },
+      Image: false, // Handled by astro:assets
+      JavaScript: true,
+      SVG: true 
+    }),
   ],
-  prefetch: false,
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: 'viewport'
+  },
 });
 `;
 
@@ -86,10 +116,11 @@ export default defineConfig({
   files[".env"] = `SITE_URL=https://${domain}
 PUBLIC_SITE_NAME=${brand}
 PUBLIC_COMPANY_NAME=${companyName}
-PUBLIC_ACCOUNT_ID=${site.accountId || ""}
-PUBLIC_TRACK_URL=${site.trackUrl || "/track"}
+PUBLIC_CONVERSION_ID=${site.conversionId || ""}
+PUBLIC_FORM_START_LABEL=${site.formStartLabel || ""}
+PUBLIC_FORM_SUBMIT_LABEL=${site.formSubmitLabel || ""}
+PUBLIC_AID=${site.aid || ""}
 PUBLIC_VOLUUM_DOMAIN=${site.voluumDomain || ""}
-PUBLIC_LEADSGATE_FORM_ID=${site.leadsGateFormId || site.redirectUrl || ""}
 `;
 
   // ─── src/styles/global.css ─────────────────────────────────
@@ -209,8 +240,7 @@ interface Props {
   title: string;
   description: string;
   canonical?: string;
-  accountId?: string;
-  trackUrl?: string;
+  conversionId?: string;
   voluumDomain?: string;
   noindex?: boolean;
 }
@@ -219,8 +249,7 @@ const {
   title,
   description,
   canonical,
-  accountId = '',
-  trackUrl = '/track',
+  conversionId = '',
   voluumDomain = '',
   noindex = false,
 } = Astro.props;
@@ -240,11 +269,33 @@ const canonicalUrl = canonical || Astro.url.href;
   <link rel="canonical" href={canonicalUrl} />
   {noindex && <meta name="robots" content="noindex, nofollow" />}
 
-  <!-- Non-blocking font loading -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <!-- DNS Prefetch and Preconnect -->
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=${f.import}&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=${f.import}&display=swap" rel="stylesheet" /></noscript>
+  
+  {voluumDomain && (
+    <>
+      <link rel="dns-prefetch" href={\`https://\${voluumDomain}\`} />
+      <link rel="preconnect" href={\`https://\${voluumDomain}\`} crossorigin />
+    </>
+  )}
+
+  <!-- Layer 1: gtag.js — Google Ads conversion only -->
+  {conversionId && (
+    <>
+      <script async src={\`https://www.googletagmanager.com/gtag/js?id=\${conversionId}\`}></script>
+      <script is:inline define:vars={{ conversionId }}>
+        window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',conversionId);
+      </script>
+    </>
+  )}
+
+  <!-- Non-blocking font loading with Preload -->
+  <link rel="preload" href={\`https://fonts.googleapis.com/css2?family=${f.import}&display=swap\`} as="style" />
+  <link href={\`https://fonts.googleapis.com/css2?family=${f.import}&display=swap\`} rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href={\`https://fonts.googleapis.com/css2?family=${f.import}&display=swap\`} rel="stylesheet" /></noscript>
 
   <style is:global>
     @import '../styles/global.css';
@@ -257,39 +308,27 @@ const canonicalUrl = canonical || Astro.url.href;
   )}
 </head>
 <body class="min-h-screen bg-[var(--color-surface)]">
-  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <script is:inline define:vars={{ accountId, trackUrl }}>
-    window.__ACCOUNT_ID__ = accountId;
-    window.__TRACK_URL__ = trackUrl;
+  <!-- Layer 2: First-party pixel (sendBeacon to t.{domain}/e) -->
+  <script is:inline>
+    (function(){
+      var PX='https://t.'+window.location.hostname+'/e';
+      var sid=crypto.randomUUID();
+      var up=new URLSearchParams(window.location.search);
+      var cid=up.get('clickid')||up.get('click_id')||up.get('cid')||'';
+      var gid=up.get('gclid')||'';
+      if(cid)sessionStorage.setItem('click_id',cid);
+      if(gid)sessionStorage.setItem('gclid',gid);
+      ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(function(k){var v=up.get(k);if(v)sessionStorage.setItem(k,v);});
+      function fire(e,d){var p=new URLSearchParams({e:e,sid:sid,cid:cid,gid:gid,ts:Date.now(),url:window.location.pathname,ref:document.referrer});if(d)for(var k in d)p.set(k,d[k]);navigator.sendBeacon(PX,p);}
+      window.__pixel=fire;
+      fire('pv',{ua:navigator.userAgent,sw:screen.width,sh:screen.height});
+      var sf={};window.addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-window.innerHeight;if(h<=0)return;var pct=Math.round(window.scrollY/h*100);[25,50,75,100].forEach(function(t){if(pct>=t&&!sf[t]){sf[t]=true;fire('s'+t);}});},{passive:true});
+      setTimeout(function(){fire('t30');},30000);setTimeout(function(){fire('t60');},60000);
+    })();
   </script>
 
   <slot />
-
-  <script is:inline>
-    (function() {
-      var params = new URLSearchParams(window.location.search);
-      var keys = ['click_id', 'cid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid'];
-      for (var i = 0; i < keys.length; i++) {
-        var val = params.get(keys[i]);
-        if (val) {
-          var storeKey = keys[i] === 'cid' ? 'click_id' : keys[i];
-          sessionStorage.setItem(storeKey, val);
-        }
-      }
-      if (typeof navigator.sendBeacon === 'function') {
-        var clickId = sessionStorage.getItem('click_id') || '';
-        var payload = JSON.stringify({
-          event: 'page_view', click_id: clickId,
-          account_id: window.__ACCOUNT_ID__ || '',
-          page: window.location.pathname,
-          referrer: document.referrer || '',
-          timestamp: new Date().toISOString()
-        });
-        try { navigator.sendBeacon(window.__TRACK_URL__ || '/track', new Blob([payload], { type: 'application/json' })); } catch(e) {}
-      }
-    })();
-  </script>
 </body>
 </html>
 `;
@@ -398,13 +437,11 @@ const { label = 'Enter your ZIP code', placeholder = '00000', id = 'zip-input' }
 interface Props {
   text?: string;
   leadsGateFormId: string;
-  leadsGateApiUrl?: string;
   id?: string;
 }
 const {
   text = '${cta}',
   leadsGateFormId,
-  leadsGateApiUrl = 'https://form.leadsgate.com',
   id = 'cta-button',
 } = Astro.props;
 ---
@@ -421,45 +458,51 @@ const {
   <div id="leadsgate-container" class="mt-4 hidden"></div>
 </div>
 
-<script define:vars={{ id, leadsGateFormId, leadsGateApiUrl }}>
+<script define:vars={{ id, leadsGateFormId }}>
   (function() {
-    const btn = document.getElementById(id);
-    const error = document.getElementById(id + '-error');
-    const container = document.getElementById('leadsgate-container');
+    var btn = document.getElementById(id);
+    var error = document.getElementById(id + '-error');
+    var container = document.getElementById('leadsgate-container');
     if (!btn) return;
-    let loaded = false;
+    var loaded = false;
+    var clickId = sessionStorage.getItem('click_id') || '';
+    var convId = (window.__CONVERSION_ID__) || '';
+    var fsLabel = (window.__FORM_START_LABEL__) || '';
+    var fsubLabel = (window.__FORM_SUBMIT_LABEL__) || '';
+    var fsFired = sessionStorage.getItem('_fs') === '1';
     btn.addEventListener('click', function() {
-      const zip = sessionStorage.getItem('zip');
+      var zip = sessionStorage.getItem('zip');
       if (!zip || zip.length !== 5) {
         error.classList.remove('hidden');
         var zi = document.getElementById('zip-input'); if (zi) zi.focus();
         return;
       }
       error.classList.add('hidden');
-      const clickId = sessionStorage.getItem('click_id') || '';
-      const amount = sessionStorage.getItem('amount') || '';
-      if (typeof navigator.sendBeacon === 'function') {
-        var payload = JSON.stringify({ event: 'cta_click', click_id: clickId, account_id: window.__ACCOUNT_ID__ || '', zip: zip, amount: amount, timestamp: new Date().toISOString() });
-        try { navigator.sendBeacon(window.__TRACK_URL__ || '/track', new Blob([payload], { type: 'application/json' })); } catch(e) {}
-      }
+      if (window.__pixel) window.__pixel('cta',{zip:zip,amount:sessionStorage.getItem('amount')||''});
       btn.disabled = true; btn.textContent = 'Loading...';
-      if (!loaded) loadLG(zip, amount, clickId);
+      if (!loaded) loadLG(zip, sessionStorage.getItem('amount') || '', clickId);
     });
-    function loadLG(zip, amount, clickId) {
+    function loadLG(zip, amount, cid) {
       loaded = true; container.classList.remove('hidden');
-      window.LGFormConfig = {
-        formId: leadsGateFormId, containerId: 'leadsgate-container',
-        prefill: { zip_code: zip, loan_amount: amount },
-        tracking: { click_id: clickId, sub_id: sessionStorage.getItem('utm_source') || '', sub_id2: sessionStorage.getItem('utm_campaign') || '', sub_id3: sessionStorage.getItem('utm_medium') || '', sub_id4: sessionStorage.getItem('gclid') || '' },
-        onComplete: function() {
-          if (typeof navigator.sendBeacon === 'function') {
-            var p = JSON.stringify({ event: 'form_complete', click_id: clickId, account_id: window.__ACCOUNT_ID__ || '', timestamp: new Date().toISOString() });
-            try { navigator.sendBeacon(window.__TRACK_URL__ || '/track', new Blob([p], { type: 'application/json' })); } catch(e) {}
-          }
+      window._lg_form_init_ = {
+        aid: leadsGateFormId,
+        template: 'fresh',
+        click_id: cid,
+        onFormLoad: function() {
+          if (!fsFired) { fsFired = true; sessionStorage.setItem('_fs','1'); if (convId && fsLabel && typeof gtag === 'function') gtag('event','conversion',{send_to:convId+'/'+fsLabel}); }
+          if (window.__pixel) window.__pixel('fl');
+        },
+        onStepChange: function(step) { if (window.__pixel) window.__pixel('step',{step:step}); },
+        onSubmit: function() {
+          if (convId && fsubLabel && typeof gtag === 'function') gtag('event','conversion',{send_to:convId+'/'+fsubLabel});
+          if (window.__pixel) window.__pixel('fs',{clickid:cid});
+        },
+        onSuccess: function(response) {
+          if (window.__pixel) window.__pixel('success',{clickid:cid,lead_id:response&&response.lead_id||''});
         }
       };
       var s = document.createElement('script');
-      s.src = leadsGateApiUrl + '/embed/' + leadsGateFormId + '.js'; s.async = true;
+      s.src = 'https://apikeep.com/form/applicationInit.js'; s.async = true;
       s.onerror = function() { btn.disabled = false; btn.textContent = '${cta}'; loaded = false; container.classList.add('hidden'); error.textContent = 'Failed to load. Please try again.'; error.classList.remove('hidden'); };
       document.body.appendChild(s);
     }
@@ -506,15 +549,6 @@ const {
   files["src/lib/tracking.ts"] = `const STORAGE_KEYS = ['zip', 'amount', 'click_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid'] as const;
 type StorageKey = typeof STORAGE_KEYS[number];
 
-export function initTracking(): void {
-  const params = new URLSearchParams(window.location.search);
-  const clickId = params.get('click_id') || params.get('cid') || '';
-  if (clickId) sessionStorage.setItem('click_id', clickId);
-  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as StorageKey[]) {
-    const v = params.get(key); if (v) sessionStorage.setItem(key, v);
-  }
-  const gclid = params.get('gclid'); if (gclid) sessionStorage.setItem('gclid', gclid);
-}
 export function setTrackingValue(key: StorageKey, value: string): void { sessionStorage.setItem(key, value); }
 export function getTrackingValue(key: StorageKey): string { return sessionStorage.getItem(key) || ''; }
 export function getTrackingData(): Record<string, string> {
@@ -522,10 +556,8 @@ export function getTrackingData(): Record<string, string> {
   for (const key of STORAGE_KEYS) { const v = sessionStorage.getItem(key); if (v) data[key] = v; }
   return data;
 }
-export function sendBeacon(event: string, extra?: Record<string, string>): void {
-  const url = (window as any).__TRACK_URL__ || '/track';
-  const payload = { event, timestamp: new Date().toISOString(), click_id: getTrackingValue('click_id'), account_id: (window as any).__ACCOUNT_ID__ || '', page: window.location.pathname, ...extra };
-  try { const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' }); navigator.sendBeacon(url, blob); } catch {}
+export function firePixel(event: string, extra?: Record<string, string>): void {
+  if (typeof (window as any).__pixel === 'function') { (window as any).__pixel(event, extra); }
 }
 `;
 
@@ -537,10 +569,11 @@ import AmountSlider from '../components/AmountSlider.astro';
 import CTAButton from '../components/CTAButton.astro';
 import ComplianceBlock from '../components/ComplianceBlock.astro';
 
-const accountId = import.meta.env.PUBLIC_ACCOUNT_ID || '';
-const trackUrl = import.meta.env.PUBLIC_TRACK_URL || '/track';
+const conversionId = import.meta.env.PUBLIC_CONVERSION_ID || '';
+const formStartLabel = import.meta.env.PUBLIC_FORM_START_LABEL || '';
+const formSubmitLabel = import.meta.env.PUBLIC_FORM_SUBMIT_LABEL || '';
+const aid = import.meta.env.PUBLIC_AID || '';
 const voluumDomain = import.meta.env.PUBLIC_VOLUUM_DOMAIN || '';
-const leadsGateFormId = import.meta.env.PUBLIC_LEADSGATE_FORM_ID || '';
 const companyName = import.meta.env.PUBLIC_COMPANY_NAME || '${companyName}';
 const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
 ---
@@ -548,11 +581,13 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
 <BaseLayout
   title={\`\${siteName} — ${loanLabel}\`}
   description="${sub}"
-  accountId={accountId}
-  trackUrl={trackUrl}
+  conversionId={conversionId}
   voluumDomain={voluumDomain}
   noindex={true}
 >
+  <script is:inline define:vars={{ conversionId, formStartLabel, formSubmitLabel }}>
+    window.__CONVERSION_ID__=conversionId;window.__FORM_START_LABEL__=formStartLabel;window.__FORM_SUBMIT_LABEL__=formSubmitLabel;
+  </script>
   <main id="main-content" class="flex flex-col items-center px-4 py-8 sm:py-12">
 
     <!-- Hero -->
@@ -563,21 +598,21 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
       <p class="text-base sm:text-lg text-gray-600 leading-relaxed" style="text-wrap:pretty">
         ${sub}
       </p>
-    </section>
+     section>
 
     <!-- Trust Indicators -->
     <section class="w-full max-w-md mb-8" aria-label="Trust indicators">
       <ul class="flex justify-center gap-6 text-center text-sm text-gray-500 list-none p-0 m-0" role="list">
         <li class="flex flex-col items-center">
-          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" loading="lazy"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
           <span>256-bit SSL</span>
         </li>
         <li class="flex flex-col items-center">
-          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" loading="lazy"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           <span>2-Min Process</span>
         </li>
         <li class="flex flex-col items-center">
-          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <svg class="w-6 h-6 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" loading="lazy"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           <span>No Credit Impact</span>
         </li>
       </ul>
@@ -602,7 +637,7 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
           <ZipInput />
         </div>
         <div class="pt-2">
-          <CTAButton leadsGateFormId={leadsGateFormId} />
+          <CTAButton leadsGateFormId={aid} />
         </div>
       </div>
       <p class="mt-4 text-xs text-gray-400 text-center">
@@ -619,21 +654,21 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
       <ol class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center list-none p-0 m-0" role="list">
         <li class="p-4">
           <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
-            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" loading="lazy"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
           </div>
           <h3 class="text-sm font-semibold text-gray-800 mb-1">Fill Out Form</h3>
           <p class="text-xs text-gray-500">Answer a few quick questions about your loan needs.</p>
         </li>
         <li class="p-4">
           <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
-            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" loading="lazy"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
           </div>
           <h3 class="text-sm font-semibold text-gray-800 mb-1">Get Matched</h3>
           <p class="text-xs text-gray-500">We connect you with lenders competing for your business.</p>
         </li>
         <li class="p-4">
           <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
-            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <svg class="w-6 h-6 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" loading="lazy"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <h3 class="text-sm font-semibold text-gray-800 mb-1">Choose Your Offer</h3>
           <p class="text-xs text-gray-500">Compare rates and terms, then pick the best deal for you.</p>
@@ -643,6 +678,16 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || '${brand}';
 
     <ComplianceBlock companyName={companyName} />
   </main>
+
+  <script is:inline>
+    // Delayed tracking to improve TBT and interactivity
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        if (typeof window.initTracking === 'function') window.initTracking();
+        console.log('Performance tracking deferred');
+      }, 2000);
+    });
+  </script>
 </BaseLayout>
 `;
 
@@ -668,10 +713,11 @@ Edit \`.env\` to configure tracking and API keys:
 SITE_URL=https://${domain}
 PUBLIC_SITE_NAME=${brand}
 PUBLIC_COMPANY_NAME=${companyName}
-PUBLIC_LEADSGATE_FORM_ID=your-form-id
+PUBLIC_CONVERSION_ID=AW-123456789
+PUBLIC_FORM_START_LABEL=AbCdEfGhIjK
+PUBLIC_FORM_SUBMIT_LABEL=XyZaBcDeFgH
+PUBLIC_AID=14881
 PUBLIC_VOLUUM_DOMAIN=trk.yourdomain.com
-PUBLIC_ACCOUNT_ID=your-account-id
-PUBLIC_TRACK_URL=/track
 \`\`\`
 
 ## Deploy

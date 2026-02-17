@@ -1,0 +1,78 @@
+---
+import LPLayout from '../layouts/LPLayout.astro';
+import Hero from '../components/Hero.astro';
+import TrustBar from '../components/TrustBar.astro';
+import AmountSlider from '../components/AmountSlider.astro';
+import ZipInput from '../components/ZipInput.astro';
+import CTAButton from '../components/CTAButton.astro';
+import HowItWorks from '../components/HowItWorks.astro';
+import FAQ from '../components/FAQ.astro';
+import Compliance from '../components/Compliance.astro';
+
+const conversionId = import.meta.env.PUBLIC_CONVERSION_ID || '';
+const formStartLabel = import.meta.env.PUBLIC_FORM_START_LABEL || '';
+const formSubmitLabel = import.meta.env.PUBLIC_FORM_SUBMIT_LABEL || '';
+const aid = import.meta.env.PUBLIC_AID || '';
+const voluumDomain = import.meta.env.PUBLIC_VOLUUM_DOMAIN || '';
+const companyName = import.meta.env.PUBLIC_COMPANY_NAME || 'Our Company';
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'LoanSite';
+---
+
+<LPLayout
+  title={`${siteName} — Personal Loans $1K–$50K`}
+  description="Compare personal loan offers from top lenders. Check your rate in minutes with no impact to your credit score."
+  conversionId={conversionId}
+  formStartLabel={formStartLabel}
+  formSubmitLabel={formSubmitLabel}
+  voluumDomain={voluumDomain}
+  companyName={companyName}
+>
+  <Hero
+    headline="Get the Funds You Need — Fast"
+    subheadline="Compare personalized loan offers from trusted lenders. Check your rate in minutes with no impact to your credit score."
+    badge="No Credit Impact"
+  />
+
+  <TrustBar />
+
+  <!-- Form Section -->
+  <section class="py-10 sm:py-14 bg-background" aria-labelledby="form-heading">
+    <div class="max-w-md mx-auto px-4">
+      <h2 id="form-heading" class="sr-only">Get your personalized rate</h2>
+
+      <div class="bg-card rounded-2xl border border-border shadow-xl shadow-primary/5 p-6 sm:p-8 space-y-6">
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold" aria-hidden="true">1</span>
+            <span class="text-sm font-semibold text-foreground">Choose your loan amount</span>
+          </div>
+          <AmountSlider />
+        </div>
+
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold" aria-hidden="true">2</span>
+            <span class="text-sm font-semibold text-foreground">Enter your ZIP code</span>
+          </div>
+          <ZipInput />
+        </div>
+
+        <div class="pt-2">
+          <CTAButton aid={aid} />
+        </div>
+      </div>
+
+      <p class="mt-4 text-xs text-muted-foreground text-center">
+        By clicking "See My Options" you agree to our
+        <a href="/terms" class="underline hover:text-foreground transition-colors">Terms</a> and
+        <a href="/privacy" class="underline hover:text-foreground transition-colors">Privacy Policy</a>.
+        Checking rates won't affect your credit score.
+      </p>
+    </div>
+  </section>
+
+  <HowItWorks />
+  <FAQ />
+
+  <Compliance slot="footer" companyName={companyName} />
+</LPLayout>

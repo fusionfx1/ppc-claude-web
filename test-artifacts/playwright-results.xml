@@ -1,0 +1,89 @@
+<testsuites id="" name="" tests="17" failures="1" skipped="0" errors="0" time="29.233236">
+<testsuite name="ops-center\ops-center-save.spec.ts" timestamp="2026-02-16T16:36:19.560Z" hostname="chromium" tests="17" failures="1" skipped="0" time="108.973" errors="0">
+<testcase name="Ops Center - Save Functionality › should display Ops Center with all tabs" classname="ops-center\ops-center-save.spec.ts" time="5.115">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should switch between tabs successfully" classname="ops-center\ops-center-save.spec.ts" time="6.611">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should open Cloudflare Account modal and validate form" classname="ops-center\ops-center-save.spec.ts" time="4.927">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should fill Cloudflare Account form and save successfully" classname="ops-center\ops-center-save.spec.ts" time="8.349">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should validate required fields in Cloudflare Account form" classname="ops-center\ops-center-save.spec.ts" time="5.547">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should open Registrar Account modal" classname="ops-center\ops-center-save.spec.ts" time="5.227">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should fill Registrar Account form and save successfully" classname="ops-center\ops-center-save.spec.ts" time="7.148">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should test connection in Registrar Account modal" classname="ops-center\ops-center-save.spec.ts" time="7.259">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should open Add Existing Domain modal" classname="ops-center\ops-center-save.spec.ts" time="5.116">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should fill Add Existing Domain form and save" classname="ops-center\ops-center-save.spec.ts" time="6.186">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should close modal when Cancel is clicked" classname="ops-center\ops-center-save.spec.ts" time="5.309">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should display Quick Actions in Overview tab" classname="ops-center\ops-center-save.spec.ts" time="4.416">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should open Check &amp; Register Domain modal" classname="ops-center\ops-center-save.spec.ts" time="20.326">
+<failure message="ops-center-save.spec.ts:418:3 should open Check &amp; Register Domain modal" type="FAILURE">
+<![CDATA[  [chromium] › ops-center\ops-center-save.spec.ts:418:3 › Ops Center - Save Functionality › should open Check & Register Domain modal 
+
+    TimeoutError: page.screenshot: Timeout 15000ms exceeded.
+    Call log:
+      - taking page screenshot
+      - waiting for fonts to load...
+
+
+       at ..\pages\OpsCenterPage.ts:217
+
+      215 |    */
+      216 |   async screenshot(path: string) {
+    > 217 |     await this.page.screenshot({ path, fullPage: true });
+          |                     ^
+      218 |   }
+      219 |
+      220 |   /**
+        at OpsCenterPage.screenshot (F:\astro.build\ppc-claude-web\tests\pages\OpsCenterPage.ts:217:21)
+        at F:\astro.build\ppc-claude-web\tests\e2e\ops-center\ops-center-save.spec.ts:50:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Ops Center - Save Functionality › should handle API errors gracefully" classname="ops-center\ops-center-save.spec.ts" time="5.021">
+</testcase>
+<testcase name="Ops Center - State Management › should reflect added items in the UI" classname="ops-center\ops-center-save.spec.ts" time="5.496">
+</testcase>
+<testcase name="Ops Center - Accessibility › should be navigable via keyboard" classname="ops-center\ops-center-save.spec.ts" time="2.733">
+</testcase>
+<testcase name="Ops Center - Accessibility › should close modal on Escape key press" classname="ops-center\ops-center-save.spec.ts" time="4.187">
+</testcase>
+</testsuite>
+</testsuites>

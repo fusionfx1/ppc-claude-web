@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "./services/api";
 import * as db from "./services/neon";
-import { THEME as T } from "./constants";
+import { THEME as T, WIZARD_DEFAULTS } from "./constants";
 import { uid, now, LS } from "./utils";
 
 // Component Imports
@@ -22,7 +22,7 @@ const NEON_URL = import.meta.env.PUBLIC_NEON_URL || "";
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [sites, setSites] = useState([]);
-  const [ops, setOps] = useState({ domains: [], accounts: [], cfAccounts: [], profiles: [], payments: [], logs: [] });
+  const [ops, setOps] = useState({ domains: [], accounts: [], cfAccounts: [], registrarAccounts: [], profiles: [], payments: [], logs: [], risks: [] });
   const [settings, setSettings] = useState(() => LS.get("settings") || {});
   const [stats, setStats] = useState({ builds: 0, spend: 0 });
   const [toast, setToast] = useState(null);
@@ -100,13 +100,22 @@ export default function App() {
       }
     }
 
-    // 2. Try legacy API as fallback (if Neon not ready)
-    if (!neonReady) {
-      try {
-        const data = await api.get("/init");
-        if (!data.error) {
+    // 2. Load legacy API data (Ops data always lives in API/D1)
+    try {
+      const data = await api.get("/init");
+      if (!data.error) {
+        // Always hydrate Ops center from API when reachable
+        if (data.ops) {
+          setOps({
+            ...data.ops,
+            cfAccounts: data.cfAccounts || [],
+            registrarAccounts: data.registrarAccounts || [],
+          });
+        }
+
+        // When Neon is not ready, use API as full fallback for app data
+        if (!neonReady) {
           if (data.sites) setSites(data.sites);
-          if (data.ops) setOps({ ...data.ops, cfAccounts: data.cfAccounts || [] });
           if (data.settings) {
             // localStorage wins — user's local saves are most recent
             const merged = { ...data.settings, ...localSettings };
@@ -116,11 +125,12 @@ export default function App() {
           if (data.stats) setStats(data.stats);
           if (data.deploys) setDeploys(data.deploys);
           if (data.variants) setRegistry(data.variants);
-          setApiOk(true);
         }
-      } catch {
-        // Both Neon and API failed — use localStorage only
+
+        setApiOk(true);
       }
+    } catch {
+      // API unreachable — keep Neon/localStorage state
     }
 
     setLoading(false);
@@ -131,36 +141,78 @@ export default function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const startCreate = () => {
-    setWizData({
-      brand: "", domain: "", tagline: "", email: "",
-      loanType: "personal", amountMin: 100, amountMax: 5000, aprMin: 5.99, aprMax: 35.99,
-      colorId: "ocean", fontId: "dm-sans", layout: "hero-left", radius: "rounded",
-      h1: "", badge: "", cta: "", sub: "",
-      gtmId: "", network: "LeadsGate", redirectUrl: "", conversionId: "", conversionLabel: "",
-    });
+  const startCreate = (existingSite = null) => {
+    if (existingSite) {
+      // Edit mode: keep original ID for update/redeploy
+      setWizData({ ...WIZARD_DEFAULTS, ...existingSite, _editMode: true });
+    } else {
+      setWizData({ ...WIZARD_DEFAULTS });
+    }
     setPage("create");
   };
 
   const addSite = (site) => {
-    setSites(p => [site, ...p]);
-    setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
+    if (site._editMode) {
+      // Update existing site (redeploy)
+      const { _editMode, ...siteData } = site;
+      setSites(p => p.map(s => s.id === siteData.id ? { ...s, ...siteData, updatedAt: now() } : s));
+      
+      if (neonOk) db.saveSite(siteData).catch(() => {});
+      else if (apiOk) api.put(`/sites/${siteData.id}`, siteData).catch(() => {});
 
-    // Persist to Neon (primary) or API (fallback)
-    if (neonOk) db.saveSite(site).catch(() => {});
-    else if (apiOk) api.post("/sites", site).catch(() => {});
+      notify(`${siteData.brand} updated!`);
+    } else {
+      // New site
+      setSites(p => [site, ...p]);
+      setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
 
-    notify(`${site.brand} created!`);
+      if (neonOk) db.saveSite(site).catch(() => {});
+      else if (apiOk) api.post("/sites", site).catch(() => {});
+
+      notify(`${site.brand} created!`);
+    }
     setPage("sites");
   };
 
   const delSite = (id) => {
+    // Find the site before deleting (to match domain in ops)
+    const site = sites.find(s => s.id === id);
+    
     setSites(p => p.filter(s => s.id !== id));
 
     if (neonOk) db.deleteSite(id).catch(() => {});
     else if (apiOk) api.del(`/sites/${id}`).catch(() => {});
 
+    // Also remove matching domain from OpsCenter
+    if (site) {
+      const matchingDomain = (ops.domains || []).find(d => 
+        d.id === id || d.domain === site.domain || d.siteId === id
+      );
+      if (matchingDomain) {
+        opsDel("domains", matchingDomain.id);
+      }
+    }
+
     notify("Deleted", "danger");
+  };
+
+  const updSite = async (id, updates) => {
+    let updatedSite = null;
+    setSites(prev => prev.map(site => {
+      if (site.id !== id) return site;
+      updatedSite = { ...site, ...updates };
+      return updatedSite;
+    }));
+
+    if (!updatedSite) return;
+
+    if (neonOk) {
+      await db.saveSite(updatedSite).catch(() => {});
+    } else if (apiOk) {
+      await api.put(`/sites/${id}`, updates).catch(() => {});
+    }
+
+    notify("Site updated");
   };
 
   const addDeploy = (d) => {
@@ -170,37 +222,84 @@ export default function App() {
     else if (apiOk) api.post("/deploys", d).catch(() => {});
   };
 
-  const opsAdd = (coll, item) => {
-    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
+  const toOpsStateKey = (coll) => {
+    if (coll === "cf-accounts") return "cfAccounts";
+    if (coll === "registrar-accounts") return "registrarAccounts";
+    return coll;
+  };
+
+  const toOpsApiPayload = (coll, item) => {
+    if (!item || typeof item !== "object") return item;
+
+    if (coll === "cf-accounts") {
+      return {
+        ...item,
+        apiKey: item.apiKey || item.api_key || "",
+        apiToken: item.apiToken || item.api_token || "",
+        accountId: item.accountId || item.account_id || "",
+      };
+    }
+
+    if (coll === "registrar-accounts") {
+      return {
+        ...item,
+        apiKey: item.apiKey || item.api_key || "",
+        secretKey: item.secretKey || item.secret_key || "",
+      };
+    }
+
+    return item;
+  };
+
+  const toOpsEndpoint = (coll, id = null) => {
+    if (coll === "cf-accounts") {
+      return id ? `/cf-accounts/${id}` : "/cf-accounts";
+    }
+    if (coll === "registrar-accounts") {
+      return id ? `/registrar-accounts/${id}` : "/registrar-accounts";
+    }
+    return id ? `/ops/${coll}/${id}` : `/ops/${coll}`;
+  };
+
+  const opsAdd = (coll, item, opts = {}) => {
+    const stateKey = toOpsStateKey(coll);
+    const apiPayload = toOpsApiPayload(coll, item);
     setOps(p => ({
-      ...p, [stateKey]: [item, ...p[stateKey]],
+      ...p,
+      [stateKey]: [item, ...(p[stateKey] || [])],
       logs: [{ id: uid(), msg: `Added ${coll.slice(0, -1)}: ${item.label || item.domain || item.name || item.id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
-    const endpoint = coll === "cf-accounts" ? "/cf-accounts" : `/ops/${coll}`;
-    if (apiOk) api.post(endpoint, item).catch(() => {});
+    if (opts.persist !== false) {
+      const endpoint = toOpsEndpoint(coll);
+      api.post(endpoint, apiPayload).catch(() => {});
+    }
   };
 
   const opsDel = (coll, id) => {
-    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
-    const item = ops[stateKey].find(i => i.id === id);
+    const stateKey = toOpsStateKey(coll);
+    const item = (ops[stateKey] || []).find(i => i.id === id);
     setOps(p => ({
-      ...p, [stateKey]: p[stateKey].filter(i => i.id !== id),
+      ...p, [stateKey]: (p[stateKey] || []).filter(i => i.id !== id),
       logs: [{ id: uid(), msg: `Deleted: ${item?.label || item?.domain || id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
-    const endpoint = coll === "cf-accounts" ? `/cf-accounts/${id}` : `/ops/${coll}/${id}`;
-    if (apiOk) api.del(endpoint).catch(() => {});
+    const endpoint = toOpsEndpoint(coll, id);
+    api.del(endpoint).catch(() => {});
   };
 
-  const opsUpd = (coll, id, u) => {
-    const stateKey = coll === "cf-accounts" ? "cfAccounts" : coll;
+  const opsUpd = (coll, id, u, opts = {}) => {
+    const stateKey = toOpsStateKey(coll);
+    const apiPayload = toOpsApiPayload(coll, u);
     setOps(p => ({
       ...p,
       [stateKey]: (p[stateKey] || []).map(i => i.id === id ? { ...i, ...u } : i),
       logs: [{ id: uid(), msg: `Updated ${coll.slice(0, -1)}: ${id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
     // Persist to API
-    const endpoint = coll === "cf-accounts" ? `/cf-accounts/${id}` : `/ops/${coll}/${id}`;
-    if (apiOk) api.put(endpoint, u).catch(() => {});
+    if (opts.persist !== false) {
+      const endpoint = toOpsEndpoint(coll, id);
+      return api.put(endpoint, apiPayload);
+    }
+    return Promise.resolve({ success: true, skipped: true });
   };
 
   const handleSaveSettings = async (s) => {
@@ -243,7 +342,8 @@ export default function App() {
         else { notify("Saved locally — API sync failed", "warning"); }
       } catch { notify("Saved locally — API unreachable", "warning"); }
     } else {
-      notify("Saved locally", "success");
+      // No backend connected — still show success since localStorage save worked
+      notify("Saved locally ✓", "success");
     }
   };
 

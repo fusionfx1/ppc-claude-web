@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { THEME as T, COLORS } from "../constants";
 import { LS, uid, now, hsl } from "../utils";
-import { generateLP, makeThemeJson, htmlToZip, astroProjectToZip } from "../utils/lp-generator";
-import { generateAstroProject } from "../utils/astro-generator";
-import { downloadGtmJson } from "../utils/gtm-exporter";
+import { makeThemeJson, htmlToZip, astroProjectToZip } from "../utils/lp-generator";
+import { generateHtmlByTemplate, generateAstroProjectByTemplate, generateApplyPageByTemplate } from "../utils/template-router";
+
 import { deployTo, DEPLOY_TARGETS, getAvailableTargets } from "../utils/deployers";
 import { Card, Inp, Btn, Badge } from "./Atoms";
 
@@ -43,12 +43,30 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
+    const handleDelete = (site) => {
+        if (!confirm(`Delete "${site.brand}"?\nThis will also remove all deploy records.`)) return;
+        // Remove deploy URLs for this site
+        setDeployUrls(p => {
+            const updated = { ...p };
+            delete updated[site.id];
+            return updated;
+        });
+        // Delete the site
+        del(site.id);
+        notify(`Deleted ${site.brand}`);
+    };
+
     const handleDeploy = async (site, target) => {
         setOpenDeploy(null);
         setDeploying({ siteId: site.id, target });
         try {
-            const html = generateLP(site);
-            const result = await deployTo(target, html, site, settings);
+            const html = generateHtmlByTemplate(site);
+            const applyHtml = generateApplyPageByTemplate(site);
+            
+            // Attach apply.html as extra file for multi-file deploy
+            const siteWithFiles = { ...site, _extraFiles: { "/apply.html": applyHtml } };
+            
+            const result = await deployTo(target, html, siteWithFiles, settings);
             if (result.success) {
                 setDeployUrls(p => ({
                     ...p,
@@ -60,7 +78,11 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                         url: result.url, ts: now(), type: "deploy", target,
                     });
                 }
-                notify(`Deployed to ${DEPLOY_TARGETS.find(t => t.id === target)?.label}! ${result.url}`);
+                if (result.queued) {
+                    notify(`Queued ${DEPLOY_TARGETS.find(t => t.id === target)?.label}. CI is running: ${result.url}`);
+                } else {
+                    notify(`Deployed to ${DEPLOY_TARGETS.find(t => t.id === target)?.label}! ${result.url}`);
+                }
             } else {
                 notify(`Deploy failed: ${result.error}`, "danger");
             }
@@ -72,7 +94,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
 
     const downloadAstroZip = async (site) => {
         try {
-            const files = generateAstroProject(site);
+            const files = generateAstroProjectByTemplate(site);
             const blob = await astroProjectToZip(files);
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
@@ -86,7 +108,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
     };
 
     const downloadHtmlZip = async (site) => {
-        const html = generateLP(site);
+        const html = generateHtmlByTemplate(site);
         const blob = await htmlToZip(html);
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -94,6 +116,17 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
         a.click();
         URL.revokeObjectURL(a.href);
         notify("Downloaded static HTML ZIP");
+    };
+
+    const downloadApplyPage = (site) => {
+        const applyHtml = generateApplyPageByTemplate(site);
+        const blob = new Blob([applyHtml], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `apply-${site.id}.html`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        notify(`Downloaded apply-${site.id}.html`);
     };
 
     const exportJson = (site) => {
@@ -158,9 +191,13 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                                     fontSize: 18, color: "#fff", fontWeight: 700, flexShrink: 0,
                                 }}>{s.brand?.[0]}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <div style={{ fontSize: 15, fontWeight: 700 }}>{s.brand}</div>
-                                        <Badge color={T.success}>ready</Badge>
+                                        <button onClick={() => handleDelete(s)}
+                                            style={{ padding: "4px 10px", fontSize: 10, fontWeight: 700, background: "rgba(239,68,68,.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,.3)", borderRadius: 6, cursor: "pointer", transition: "all .15s", letterSpacing: ".3px" }}
+                                            onMouseEnter={e => { e.target.style.background = '#ef4444'; e.target.style.color = '#fff'; }}
+                                            onMouseLeave={e => { e.target.style.background = 'rgba(239,68,68,.15)'; e.target.style.color = '#ef4444'; }}
+                                        >🗑 DELETE</button>
                                     </div>
                                     <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{s.domain || "no domain"}</div>
 
@@ -180,6 +217,13 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                                     {/* Action Buttons */}
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
                                         <Btn variant="ghost" onClick={() => setPreview(s)} style={{ padding: "6px 10px", fontSize: 10 }}>👁 Preview</Btn>
+                                        <Btn
+                                            variant="ghost"
+                                            onClick={() => startCreate(s)}
+                                            style={{ padding: "6px 10px", fontSize: 10 }}
+                                        >
+                                            🔄 Edit & Redeploy
+                                        </Btn>
 
                                         {/* Download Dropdown */}
                                         <div style={{ position: "relative" }} ref={openDownload === s.id ? downloadRef : null}>
@@ -190,10 +234,8 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                                                 <div style={dropdownStyle}>
                                                     <DropdownItem icon="🚀" label="Astro Project (ZIP)" desc="Full source, buildable" onClick={() => { setOpenDownload(null); downloadAstroZip(s); }} />
                                                     <DropdownItem icon="📄" label="Static HTML (ZIP)" desc="Single index.html" onClick={() => { setOpenDownload(null); downloadHtmlZip(s); }} />
+                                                    <DropdownItem icon="📝" label="Apply Page (HTML)" desc="Form embed page" onClick={() => { setOpenDownload(null); downloadApplyPage(s); }} />
                                                     <DropdownItem icon="🎨" label="Theme JSON" desc="Design tokens export" onClick={() => { setOpenDownload(null); exportJson(s); }} />
-                                                    {s.gtmId && (
-                                                        <DropdownItem icon="🏷️" label="GTM Container" desc="Google Tag Manager JSON" onClick={() => { setOpenDownload(null); downloadGtmJson(s); }} />
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -223,8 +265,6 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => confirm("Delete?") && del(s.id)}
-                                    style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 12 }}>✕</button>
                             </Card>
                         );
                     })}
@@ -238,10 +278,11 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                         <div style={{ color: "#fff", fontWeight: 700 }}>Preview: {preview.brand}</div>
                         <Btn variant="danger" onClick={() => setPreview(null)} style={{ padding: "4px 12px" }}>Close</Btn>
                     </div>
-                    <iframe title="preview" style={{ flex: 1, background: "#fff", borderRadius: 12, border: "none" }} srcDoc={generateLP(preview)} />
+                    <iframe title="preview" style={{ flex: 1, background: "#fff", borderRadius: 12, border: "none" }} srcDoc={generateHtmlByTemplate(preview)} />
                 </div>
             )}
-        </div>
+
+            </div>
     );
 }
 

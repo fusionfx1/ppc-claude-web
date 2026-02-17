@@ -1,0 +1,40 @@
+---
+interface Props {
+  companyName?: string;
+  aprMin?: number;
+  aprMax?: number;
+}
+
+const {
+  companyName = 'Our Company',
+  aprMin = 5.99,
+  aprMax = 35.99,
+} = Astro.props;
+---
+
+<footer class="py-10 bg-muted/20 border-t border-border/50">
+  <div class="max-w-2xl mx-auto px-4">
+    <div class="text-xs text-muted-foreground leading-relaxed space-y-3" role="note">
+      <p>
+        <strong>APR Disclosure:</strong> Some lenders may offer loans with an Annual Percentage Rate (APR) between {aprMin}% and {aprMax}%. The APR depends on your credit score, income, debt, loan amount, and credit history. Only borrowers with excellent credit qualify for the lowest rates. All loans subject to credit review and approval.
+      </p>
+      <p>
+        <strong>Not a Lender:</strong> {companyName} is not a lender, does not broker loans, and does not make credit decisions. {companyName} provides a free service to connect consumers with lenders who may offer them loans.
+      </p>
+      <p>
+        <strong>Credit Impact:</strong> Checking your rate will not affect your credit score. If you accept a loan offer, the lender will conduct a hard credit inquiry which may impact your score.
+      </p>
+      <p>
+        <strong>State Disclosures:</strong> Loans may not be available in all states. Availability and terms depend on your state of residence and applicable laws.
+      </p>
+      <div class="pt-4 flex flex-wrap items-center justify-center gap-4 text-muted-foreground/60">
+        <a href="/privacy" class="underline hover:text-foreground transition-colors">Privacy Policy</a>
+        <span aria-hidden="true">·</span>
+        <a href="/terms" class="underline hover:text-foreground transition-colors">Terms of Service</a>
+      </div>
+      <p class="pt-2 text-center text-muted-foreground/50">
+        <small>&copy; {new Date().getFullYear()} {companyName}. All rights reserved.</small>
+      </p>
+    </div>
+  </div>
+</footer>

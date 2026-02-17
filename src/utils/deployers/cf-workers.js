@@ -12,28 +12,72 @@
 
 import { getCfApiBase } from "../api-proxy.js";
 
-function buildWorkerScript(html) {
-  // Escape backticks, backslashes, and $ for embedding in template literal
-  const escaped = html.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
+function buildWorkerScript(assets) {
+  // assets is { "/index.html": "content", "/style.css": "content", ... }
+  // or string (legacy back-compat)
+
+  let assetMap = {};
+  if (typeof assets === "string") {
+    assetMap["/"] = assets;
+    assetMap["/index.html"] = assets;
+  } else {
+    // Normalize keys to start with /
+    for (const [key, value] of Object.entries(assets)) {
+      const normalizedKey = key.startsWith("/") ? key : `/${key}`;
+      assetMap[normalizedKey] = value;
+      // Add alias for index.html as root
+      if (normalizedKey === "/index.html") {
+        assetMap["/"] = value;
+      }
+    }
+  }
+
+  // Create JS object string for embedding
+  const assetString = JSON.stringify(assetMap);
+
   return `
 // Auto-generated Worker — serves LP with edge logic
-const HTML = \`${escaped}\`;
+const ASSETS = ${assetString};
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    const path = url.pathname;
 
     // Health check
-    if (url.pathname === "/__health") {
+    if (path === "/__health") {
       return new Response("ok", { status: 200 });
     }
+
+    // Lookup asset
+    let content = ASSETS[path];
+    
+    // Fallback: if path is directory-like, try appending index.html
+    if (!content && path.endsWith("/")) {
+      content = ASSETS[path + "index.html"];
+    }
+
+    // Fallback: 404
+    if (!content) {
+      return new Response("Not Found", { status: 404 });
+    }
+
+    // Determine content type
+    let contentType = "text/html;charset=UTF-8";
+    if (path.endsWith(".css")) contentType = "text/css";
+    if (path.endsWith(".js")) contentType = "application/javascript";
+    if (path.endsWith(".json")) contentType = "application/json";
+    if (path.endsWith(".png")) contentType = "image/png";
+    if (path.endsWith(".jpg")) contentType = "image/jpeg";
+    if (path.endsWith(".svg")) contentType = "image/svg+xml";
 
     // Geo-based headers (available via CF)
     const country = request.cf?.country || "US";
     const region = request.cf?.region || "";
+    const city = request.cf?.city || "";
 
     const headers = new Headers({
-      "Content-Type": "text/html;charset=UTF-8",
+      "Content-Type": contentType,
       "Cache-Control": "public, max-age=3600, s-maxage=86400",
       "X-Robots-Tag": "noindex, nofollow",
       "X-Frame-Options": "DENY",
@@ -41,15 +85,17 @@ export default {
       "Referrer-Policy": "strict-origin-when-cross-origin",
       "X-Edge-Country": country,
       "X-Edge-Region": region,
+      "X-Edge-City": city,
+      "X-Frame-Options": "DENY",
     });
 
-    return new Response(HTML, { status: 200, headers });
+    return new Response(content, { status: 200, headers });
   }
 };
 `;
 }
 
-export async function deploy(html, site, settings) {
+export async function deploy(assets, site, settings) {
   const cfApiToken = (settings.cfApiToken || "").trim();
   const cfAccountId = (settings.cfAccountId || "").trim();
   if (!cfApiToken || !cfAccountId) {
@@ -66,7 +112,7 @@ export async function deploy(html, site, settings) {
   const cfBase = getCfApiBase();
 
   try {
-    const workerScript = buildWorkerScript(html);
+    const workerScript = buildWorkerScript(assets);
 
     // ── Upload Worker script (multipart/form-data) ───────────────
     //
@@ -139,10 +185,11 @@ export async function deploy(html, site, settings) {
         headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: true }),
       }
-    ).catch(() => {}); // Best-effort; deploy already succeeded
+    ).catch(() => { }); // Best-effort; deploy already succeeded
 
     return { success: true, url, deployId: scriptName, target: "cf-workers" };
   } catch (e) {
     return { success: false, error: e.message };
   }
 }
+

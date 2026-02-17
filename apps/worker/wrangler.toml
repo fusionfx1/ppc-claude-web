@@ -5,7 +5,7 @@
 # Each account has its own callback token stored in D1.
 # ============================================================
 
-name = "lp-factory-worker"
+name = "lp-factory-callback"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
@@ -17,8 +17,8 @@ ENVIRONMENT = "production"
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
-database_name = "lp-factory-db"
-database_id = "YOUR_D1_DATABASE_ID"  # Replace after `wrangler d1 create lp-factory-db`
+database_name = "ppc-gen-claude"
+database_id = "7d31d941-f863-46f5-99c2-2179de821573" 
 
 # Worker routes — attach to your domains
 # Uncomment and configure per domain:
