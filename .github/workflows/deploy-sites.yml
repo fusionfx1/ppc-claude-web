@@ -6,7 +6,7 @@ on:
       - main
       - 'release/**'
       - 'deploy/auto'
-      - 'Deploy-pipeline-Git-push'
+      - 'deploy-pipeline-fixed'
     paths:
       - 'sites/**'
       - 'schemas/deploy-manifest.schema.json'
@@ -118,6 +118,29 @@ jobs:
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
           echo "providers=$(jq -c '[.targets[].provider]' "$M")" >> "$GITHUB_OUTPUT"
 
+          # Determine actual deployment targets based on provider type
+          # If provider is "github-actions", check which platform fields are present
+          HAS_CLOUDFLARE=$(jq -r '.targets[] | select(.provider=="cloudflare-pages" or (.provider=="github-actions" and .projectName != null)) | "cloudflare"' "$M" | head -n1)
+          HAS_NETLIFY=$(jq -r '.targets[] | select(.provider=="netlify" or (.provider=="github-actions" and .siteId != null)) | "netlify"' "$M" | head -n1)
+          HAS_VERCEL=$(jq -r '.targets[] | select(.provider=="vercel" or (.provider=="github-actions" and .vercelProjectId != null)) | "vercel"' "$M" | head -n1)
+
+          # Set deploy_targets output
+          DEPLOY_TARGETS="${HAS_CLOUDFLARE} ${HAS_NETLIFY} ${HAS_VERCEL}"
+          DEPLOY_TARGETS=$(echo "$DEPLOY_TARGETS" | jq -Rsc 'split(" ") | map(select(length > 0)) | join(",")')
+          echo "deploy_targets=$DEPLOY_TARGETS" >> "$GITHUB_OUTPUT"
+
+          # Debug output
+          echo "### 🎯 Deployment Targets" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Provider | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| cloudflare-pages | ${HAS_CLOUDFLARE:+✅ detected} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| netlify | ${HAS_NETLIFY:+✅ detected} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| vercel | ${HAS_VERCEL:+✅ detected} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat "$M" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Parse callback metadata
         id: callback
         shell: bash
@@ -143,34 +166,51 @@ jobs:
         run: npm i -g wrangler netlify-cli vercel && sudo apt-get update && sudo apt-get install -y jq
 
       - name: Deploy to Cloudflare Pages
-        if: contains(steps.targets.outputs.providers, 'cloudflare-pages')
+        if: |
+          contains(steps.targets.outputs.providers, 'cloudflare-pages') ||
+          contains(steps.targets.outputs.deploy_targets, 'cloudflare')
         shell: bash
         run: |
           set -euo pipefail
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
-          PROJECT=$(jq -r '.targets[] | select(.provider=="cloudflare-pages") | .projectName' "$M" | head -n1)
+          # Get projectName from either cloudflare-pages or github-actions provider
+          PROJECT=$(jq -r '.targets[] | select(.provider=="cloudflare-pages" or (.provider=="github-actions" and .projectName != null)) | .projectName // empty' "$M" | head -n1)
+          echo "Deploying to Cloudflare Pages project: $PROJECT"
           wrangler pages deploy "sites/${{ matrix.site_id }}" --project-name "$PROJECT"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy to Netlify
-        if: contains(steps.targets.outputs.providers, 'netlify')
+        if: |
+          contains(steps.targets.outputs.providers, 'netlify') ||
+          contains(steps.targets.outputs.deploy_targets, 'netlify')
         shell: bash
         run: |
           set -euo pipefail
           M="sites/${{ matrix.site_id }}/deploy-manifest.json"
-          SITE_ID=$(jq -r '.targets[] | select(.provider=="netlify") | .siteId' "$M" | head -n1)
+          # Get siteId from either netlify or github-actions provider
+          SITE_ID=$(jq -r '.targets[] | select(.provider=="netlify" or (.provider=="github-actions" and .siteId != null)) | .siteId // empty' "$M" | head -n1)
+          echo "Deploying to Netlify site: $SITE_ID"
           netlify deploy --dir="sites/${{ matrix.site_id }}" --site "$SITE_ID" --prod
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
 
       - name: Deploy to Vercel
-        if: contains(steps.targets.outputs.providers, 'vercel')
+        if: |
+          contains(steps.targets.outputs.providers, 'vercel') ||
+          contains(steps.targets.outputs.deploy_targets, 'vercel')
         shell: bash
         run: |
           set -euo pipefail
+          M="sites/${{ matrix.site_id }}/deploy-manifest.json"
+          PROJECT_ID=$(jq -r '.targets[] | select(.provider=="vercel" or (.provider=="github-actions" and .vercelProjectId != null)) | .vercelProjectId // empty' "$M" | head -n1)
+          echo "Deploying to Vercel project: ${PROJECT_ID:-default}"
           vercel deploy "sites/${{ matrix.site_id }}" --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Summary
         if: always()
