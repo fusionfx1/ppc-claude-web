@@ -8,11 +8,13 @@
  *   4. Upload missing files via JWT
  *   5. Register hashes (upsert-hashes)
  *   6. Create deployment with manifest
+ *   7. Update DNS records if domain is configured
  *
  * IMPORTANT: CF Pages uses MD5 hashes, NOT SHA-256.
  */
 
 import { getCfApiBase } from "../api-proxy.js";
+import { updateDnsAfterDeploy as updateCfDns } from "../../services/cloudflare-dns.js";
 
 /* ── MD5 implementation (browser-compatible) ─────────────────────── */
 function md5(data) {
@@ -94,7 +96,7 @@ async function cfFetch(url, opts = {}) {
   return { ok: res.ok, status: res.status, json };
 }
 
-export async function deploy(html, site, settings) {
+export async function deploy(content, site, settings) {
   const cfApiToken = (settings.cfApiToken || "").trim();
   const cfAccountId = (settings.cfAccountId || "").trim();
   if (!cfApiToken || !cfAccountId) {
@@ -103,6 +105,13 @@ export async function deploy(html, site, settings) {
   if (!/^[0-9a-f]{32}$/i.test(cfAccountId)) {
     return { success: false, error: `Invalid Account ID: must be exactly 32 hex characters (got ${cfAccountId.length}). Check Settings.` };
   }
+
+  // Normalize content: string → single file, object → multi-file
+  const fileEntries = typeof content === "string"
+    ? { "/index.html": content }
+    : Object.fromEntries(
+        Object.entries(content).map(([k, v]) => [k.startsWith("/") ? k : `/${k}`, v])
+      );
 
   const slug = (site.domain || site.brand || "lp")
     .toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").slice(0, 40);
@@ -129,10 +138,17 @@ export async function deploy(html, site, settings) {
       }
     }
 
-    // ── Step 2: Compute MD5 hashes ─────────────────────────────────
+    // ── Step 2: Compute MD5 hashes for all files ─────────────────
     const encoder = new TextEncoder();
-    const indexData = encoder.encode(html);
-    const indexHash = md5(indexData);
+    const fileDataMap = {}; // { path: { data, hash } }
+    const allHashes = [];
+    
+    for (const [filePath, fileContent] of Object.entries(fileEntries)) {
+      const data = encoder.encode(fileContent);
+      const hash = md5(data);
+      fileDataMap[filePath] = { data, hash };
+      allHashes.push(hash);
+    }
 
     // ── Step 3: Get upload JWT token ───────────────────────────────
     const tokenRes = await cfFetch(
@@ -148,43 +164,52 @@ export async function deploy(html, site, settings) {
     // ── Step 4: Check which files need uploading ───────────────────
     const checkMissing = await cfFetch(
       `${cfBase}/pages/assets/check-missing`,
-      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: [indexHash] }) }
+      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: allHashes }) }
     );
     const missingHashes = checkMissing.json?.result || [];
 
     // ── Step 5: Upload missing files ───────────────────────────────
     if (missingHashes.length > 0) {
-      // Convert file content to base64 safely (spread operator fails > 65KB)
-      let b64 = "";
-      const CHUNK = 0x8000; // 32KB chunks
-      for (let i = 0; i < indexData.length; i += CHUNK) {
-        b64 += String.fromCharCode.apply(null, indexData.subarray(i, i + CHUNK));
+      const uploadPayload = [];
+      for (const [, file] of Object.entries(fileDataMap)) {
+        if (!missingHashes.includes(file.hash)) continue;
+        // Convert file content to base64 safely (spread operator fails > 65KB)
+        let b64 = "";
+        const CHUNK = 0x8000; // 32KB chunks
+        for (let i = 0; i < file.data.length; i += CHUNK) {
+          b64 += String.fromCharCode.apply(null, file.data.subarray(i, i + CHUNK));
+        }
+        b64 = btoa(b64);
+        uploadPayload.push({
+          key: file.hash,
+          value: b64,
+          metadata: { contentType: "text/html" },
+          base64: true,
+        });
       }
-      b64 = btoa(b64);
-      const uploadPayload = [{
-        key: indexHash,
-        value: b64,
-        metadata: { contentType: "text/html" },
-        base64: true,
-      }];
 
-      const uploadRes = await cfFetch(
-        `${cfBase}/pages/assets/upload`,
-        { method: "POST", headers: jwtAuth, body: JSON.stringify(uploadPayload) }
-      );
-      if (!uploadRes.ok) {
-        return { success: false, error: `File upload failed: ${uploadRes.json.errors?.[0]?.message || uploadRes.status}` };
+      if (uploadPayload.length > 0) {
+        const uploadRes = await cfFetch(
+          `${cfBase}/pages/assets/upload`,
+          { method: "POST", headers: jwtAuth, body: JSON.stringify(uploadPayload) }
+        );
+        if (!uploadRes.ok) {
+          return { success: false, error: `File upload failed: ${uploadRes.json.errors?.[0]?.message || uploadRes.status}` };
+        }
       }
     }
 
     // ── Step 6: Register hashes (upsert) ───────────────────────────
     await cfFetch(
       `${cfBase}/pages/assets/upsert-hashes`,
-      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: [indexHash] }) }
+      { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: allHashes }) }
     );
 
     // ── Step 7: Create deployment ──────────────────────────────────
-    const manifest = { "/index.html": indexHash };
+    const manifest = {};
+    for (const [filePath, file] of Object.entries(fileDataMap)) {
+      manifest[filePath] = file.hash;
+    }
     const formData = new FormData();
     formData.append("manifest", JSON.stringify(manifest));
     formData.append("branch", "main");
@@ -207,7 +232,37 @@ export async function deploy(html, site, settings) {
     const deployId = deployData.result?.id;
     const url = deployData.result?.url || `https://${projectName}.pages.dev`;
 
-    return { success: true, url, deployId, target: "cf-pages" };
+    // ═════════════════════════════════════════════════════════════════════
+    // Step 8: Update DNS records if custom domain is configured
+    // ═════════════════════════════════════════════════════════════════════
+    let dnsUpdated = false;
+    let dnsError = null;
+
+    if (site.domain && cfAccountId && cfApiToken) {
+      try {
+        const dnsResult = await updateCfDns({
+          domain: site.domain,
+          cfAccountId,
+          cfApiToken,
+          deployTarget: "cf-pages",
+          deployUrl: url,
+          proxied: true,
+        });
+        dnsUpdated = dnsResult.success;
+        dnsError = dnsResult.error;
+      } catch (e) {
+        dnsError = e.message;
+      }
+    }
+
+    return {
+      success: true,
+      url,
+      deployId,
+      target: "cf-pages",
+      dnsUpdated,
+      dnsError,
+    };
   } catch (e) {
     return { success: false, error: e.message };
   }

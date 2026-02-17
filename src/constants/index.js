@@ -42,9 +42,20 @@ export const RADIUS = [
     { id: "pill", label: "Pill", v: "1.5rem" },
 ];
 
+export const TRUST_BADGE_STYLES = [
+    { id: "compact", label: "Compact Bar", desc: "Simple stats row" },
+    { id: "cards", label: "Credibility Cards", desc: "Detailed trust badges" },
+    { id: "both", label: "Both", desc: "Bar + cards" },
+];
+
+export const TRUST_BADGE_ICON_TONES = [
+    { id: "primary", label: "Primary" },
+    { id: "accent", label: "Accent" },
+    { id: "secondary", label: "Secondary" },
+];
+
 export const NETWORKS_AFF = ["LeadsGate", "ZeroParallel", "LeadStack", "ClickDealer", "Everflow", "Custom"];
-export const REGISTRARS = ["Namecheap", "GoDaddy", "Cloudflare", "Porkbun", "Other"];
-export const STATUSES = ["active", "paused", "suspended", "setup", "expired"];
+export const REGISTRARS = ["Namecheap", "GoDaddy", "Cloudflare", "Porkbun", "Internet.bs", "Other"];
 
 export const COPY_SETS = [
     { id: "smart", brand: "ElasticCredits", h1: "A Smarter Way", h1span: "to Borrow", sub: "Get approved in minutes. Funds as fast as next business day.", cta: "Check My Rate", badge: "4,200+ funded this month" },
@@ -55,18 +66,176 @@ export const COPY_SETS = [
     { id: "flex", brand: "FlexCredit", h1: "Flexible Loans", h1span: "on Your Terms", sub: "Choose your amount. Pick your timeline. Get funded fast.", cta: "Check Eligibility", badge: "6,100+ customers served" },
 ];
 
-export const SECTION_ORDERS = [
-    { id: "default", name: "Standard", order: ["social", "steps", "calc", "features", "faq", "cta"] },
-    { id: "trust-first", name: "Trust First", order: ["social", "features", "steps", "calc", "faq", "cta"] },
-    { id: "calc-early", name: "Calc Early", order: ["social", "calc", "steps", "features", "faq", "cta"] },
-    { id: "minimal", name: "Minimal", order: ["social", "steps", "faq", "cta"] },
-    { id: "faq-early", name: "FAQ Early", order: ["social", "faq", "steps", "calc", "features", "cta"] },
+export const SITE_TEMPLATES = [
+    {
+        id: "classic",
+        name: "Classic LP",
+        badge: "Stable",
+        description: "Current production LP flow (HTML + Astro generator)",
+    },
+    {
+        id: "astrodeck-loan",
+        name: "AstroDeck Loan",
+        badge: "New",
+        description: "New AstroDeck-style loan template architecture",
+    },
 ];
 
-export const COMPLIANCE_VARIANTS = [
-    { id: "standard", name: "Standard", example: "$1,000 loan, 12mo at 15% APR = $90.26/mo.", apr: "APR 5.99%–35.99%." },
-    { id: "detailed", name: "Detailed", example: "$2,500, 24mo at 19.9% APR = ~$127.12/mo.", apr: "5.99%–35.99% APR depending on credit." },
-    { id: "simple", name: "Simple", example: "$1,500 for 12mo at 12% APR. $133.28/mo.", apr: "APR 5.99%–35.99%." },
+// Default configuration for new landing page wizard
+export const WIZARD_DEFAULTS = {
+    brand: "", domain: "", tagline: "", email: "",
+    templateId: "classic",
+    loanType: "personal", amountMin: 100, amountMax: 5000, aprMin: 5.99, aprMax: 35.99,
+    colorId: "ocean", fontId: "dm-sans", layout: "hero-left", radius: "rounded",
+    trustBadgeStyle: "both",
+    trustBadgeIconTone: "primary",
+    h1: "", badge: "", cta: "", sub: "",
+    conversionId: "", formStartLabel: "", formSubmitLabel: "",
+    aid: "", network: "LeadsGate", redirectUrl: "",
+    voluumId: "", voluumDomain: "",
+    lang: "English",
+};
+
+export const DNS_RECORD_TYPES = [
+    { id: "A", label: "A", description: "IPv4 address", placeholder: "192.0.2.1" },
+    { id: "AAAA", label: "AAAA", description: "IPv6 address", placeholder: "2001:db8::1" },
+    { id: "CNAME", label: "CNAME", description: "Canonical name", placeholder: "example.com" },
+    { id: "TXT", label: "TXT", description: "Text record", placeholder: "v=spf1 include:_spf.google.com ~all" },
+    { id: "MX", label: "MX", description: "Mail exchange", placeholder: "mail.example.com" },
+    { id: "NS", label: "NS", description: "Name server", placeholder: "ns1.example.com" },
+    { id: "SRV", label: "SRV", description: "Service record", placeholder: "_service._proto.example.com" },
+    { id: "CAA", label: "CAA", description: "Certification Authority Authorization", placeholder: "issue ca.example.com" },
+];
+
+export const DNS_TEMPLATES = [
+    {
+        id: "landing-page",
+        name: "Landing Page",
+        icon: "🌐",
+        description: "Basic landing page with www",
+        records: [
+            { type: "A", name: "@", content: "192.0.2.1", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "@", ttl: 3600, proxied: true },
+        ],
+    },
+    {
+        id: "email-google",
+        name: "Google Workspace Email",
+        icon: "📧",
+        description: "MX + SPF records for Gmail",
+        records: [
+            { type: "MX", name: "@", content: "aspmx.l.google.com", priority: 1, ttl: 3600, proxied: false },
+            { type: "MX", name: "@", content: "alt1.aspmx.l.google.com", priority: 5, ttl: 3600, proxied: false },
+            { type: "MX", name: "@", content: "alt2.aspmx.l.google.com", priority: 5, ttl: 3600, proxied: false },
+            { type: "MX", name: "@", content: "alt3.aspmx.l.google.com", priority: 10, ttl: 3600, proxied: false },
+            { type: "MX", name: "@", content: "alt4.aspmx.l.google.com", priority: 10, ttl: 3600, proxied: false },
+            { type: "TXT", name: "@", content: "v=spf1 include:_spf.google.com ~all", ttl: 3600, proxied: false },
+        ],
+    },
+    {
+        id: "wordpress",
+        name: "WordPress",
+        icon: "📝",
+        description: "A record + www + PHP subdomain",
+        records: [
+            { type: "A", name: "@", content: "192.0.2.1", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "@", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "wp-admin", content: "@", ttl: 3600, proxied: true },
+        ],
+    },
+    {
+        id: "saas",
+        name: "SaaS Application",
+        icon: "⚡",
+        description: "App + API + www subdomains",
+        records: [
+            { type: "A", name: "@", content: "192.0.2.1", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "@", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "app", content: "@", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "api", content: "@", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "dashboard", content: "@", ttl: 3600, proxied: true },
+        ],
+    },
+    {
+        id: "cdn-static",
+        name: "CDN + Static Assets",
+        icon: "📦",
+        description: "Static assets via CDN",
+        records: [
+            { type: "A", name: "@", content: "192.0.2.1", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "@", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "cdn", content: "cdn.example.com", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "static", content: "cdn.example.com", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "assets", content: "cdn.example.com", ttl: 3600, proxied: true },
+        ],
+    },
+    {
+        id: "dkim-email",
+        name: "Email + DKIM + DMARC",
+        icon: "🔒",
+        description: "Complete email security setup",
+        records: [
+            { type: "MX", name: "@", content: "mail.example.com", priority: 10, ttl: 3600, proxied: false },
+            { type: "TXT", name: "@", content: "v=spf1 mx -all", ttl: 3600, proxied: false },
+            { type: "TXT", name: "_dmarc", content: "v=DMARC1; p=none; rua=mailto:dmarc@example.com", ttl: 3600, proxied: false },
+            { type: "TXT", name: "selector1._domainkey", content: "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQD...", ttl: 3600, proxied: false },
+        ],
+    },
+    {
+        id: "cloudflare-pages",
+        name: "Cloudflare Pages",
+        icon: "☁️",
+        description: "Deployed to CF Pages",
+        records: [
+            { type: "CNAME", name: "@", content: "your-project.pages.dev", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "your-project.pages.dev", ttl: 3600, proxied: true },
+        ],
+    },
+    {
+        id: "netlify",
+        name: "Netlify",
+        icon: "▲",
+        description: "Deployed to Netlify",
+        records: [
+            { type: "CNAME", name: "@", content: "example.netlify.com", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "example.netlify.com", ttl: 3600, proxied: true },
+        ],
+    },
+    {
+        id: "vercel",
+        name: "Vercel",
+        icon: "▲",
+        description: "Deployed to Vercel",
+        records: [
+            { type: "CNAME", name: "@", content: "cname.vercel-dns.com", ttl: 3600, proxied: true },
+            { type: "CNAME", name: "www", content: "cname.vercel-dns.com", ttl: 3600, proxied: true },
+        ],
+    },
+];
+
+export const DEPLOY_TARGETS = [
+    { id: "cf-pages", label: "Cloudflare Pages", icon: "☁️", description: "Fast global CDN with Workers integration" },
+    { id: "netlify", label: "Netlify", icon: "▲", description: "JAMstack deployment with CI/CD" },
+    { id: "vercel", label: "Vercel", icon: "▲", description: "Next.js optimized deployment" },
+    { id: "cf-workers", label: "Cloudflare Workers", icon: "⚡", description: "Edge computing platform" },
+    { id: "s3-cloudfront", label: "S3 + CloudFront", icon: "📦", description: "AWS static hosting" },
+    { id: "vps-ssh", label: "VPS via SSH", icon: "🖥️", description: "Direct server deployment" },
+    { id: "git-push", label: "Git Push Pipeline", icon: "🧬", description: "Push artifacts to GitHub; CI deploys to targets" },
+];
+
+export const DEPLOY_ENVIRONMENTS = [
+    { id: "production", label: "Production", icon: "🚀", color: "#10b981", description: "Live production environment" },
+    { id: "staging", label: "Staging", icon: "🧪", color: "#f59e0b", description: "Pre-production testing" },
+    { id: "dev", label: "Development", icon: "🔧", color: "#6366f1", description: "Development environment" },
+];
+
+export const DNS_TTL_OPTIONS = [
+    { id: "auto", label: "Auto", value: 1 },
+    { id: "300", label: "5 minutes", value: 300 },
+    { id: "1800", label: "30 minutes", value: 1800 },
+    { id: "3600", label: "1 hour", value: 3600 },
+    { id: "86400", label: "1 day", value: 86400 },
+    { id: "604800", label: "1 week", value: 604800 },
 ];
 
 export const THEME = {

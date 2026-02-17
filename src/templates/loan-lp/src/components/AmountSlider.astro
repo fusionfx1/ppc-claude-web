@@ -1,0 +1,59 @@
+---
+interface Props {
+  label?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  defaultValue?: number;
+}
+
+const {
+  label = 'How much do you need?',
+  min = 1000,
+  max = 50000,
+  step = 500,
+  defaultValue = 10000,
+} = Astro.props;
+---
+
+<div class="w-full">
+  <label for="amount-slider" class="block text-sm font-semibold text-foreground mb-2">{label}</label>
+  <output id="amount-display" class="block text-center text-3xl font-bold text-primary mb-3" aria-live="polite">
+    ${defaultValue.toLocaleString()}
+  </output>
+  <input
+    type="range"
+    id="amount-slider"
+    name="amount"
+    min={min}
+    max={max}
+    step={step}
+    value={defaultValue}
+    class="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
+    aria-label={label}
+    aria-valuemin={min}
+    aria-valuemax={max}
+    aria-valuenow={defaultValue}
+  />
+  <div class="flex justify-between text-xs text-muted-foreground mt-1">
+    <span>${min.toLocaleString()}</span>
+    <span>${max.toLocaleString()}</span>
+  </div>
+</div>
+
+<script is:inline>
+  (function() {
+    var slider = document.getElementById('amount-slider');
+    var display = document.getElementById('amount-display');
+    if (!slider || !display) return;
+    slider.addEventListener('input', function() {
+      var val = parseInt(this.value, 10);
+      display.textContent = '$' + val.toLocaleString();
+      slider.setAttribute('aria-valuenow', val);
+      sessionStorage.setItem('amount', val);
+    });
+    var stored = sessionStorage.getItem('amount');
+    if (stored) { slider.value = stored; display.textContent = '$' + parseInt(stored,10).toLocaleString(); }
+    else { sessionStorage.setItem('amount', slider.value); }
+  })();
+</script>

@@ -1,17 +1,31 @@
 /**
  * API Proxy resolver
  *
- * Routes Cloudflare & Multilogin API calls through the existing Worker backend
- * at lp-factory-api.songsawat-w.workers.dev to avoid CORS issues.
- *
- * The Worker has built-in CORS headers, so no separate proxy is needed.
+ * Routes Cloudflare & Multilogin API calls through the same backend API base
+ * used by the app, so environments stay consistent (local/staging/prod).
  *
  * Routes:
  *   /api/proxy/cf/*   → api.cloudflare.com/client/v4/*
  *   /api/proxy/mlx/*  → api.multilogin.com/*
  */
 
-const WORKER_BASE = "https://lp-factory-api.songsawat-w.workers.dev";
+const DEFAULT_API_BASE = "https://lp-factory-api.songsawat-w.workers.dev/api";
+
+function getApiBase() {
+  const fromWindow = typeof window !== "undefined" ? window.__LP_API__ : "";
+  const fromEnv = typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env.VITE_API_BASE
+    : "";
+  const isLocalDev = typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+
+  const fallback = isLocalDev ? "/api" : DEFAULT_API_BASE;
+  return String(fromWindow || fromEnv || fallback).replace(/\/+$/, "");
+}
+
+function getWorkerBase() {
+  const apiBase = getApiBase();
+  return apiBase.endsWith("/api") ? apiBase.slice(0, -4) : apiBase;
+}
 
 /**
  * Get Cloudflare API base URL.
@@ -20,7 +34,7 @@ const WORKER_BASE = "https://lp-factory-api.songsawat-w.workers.dev";
  * Equivalent to: https://api.cloudflare.com/client/v4
  */
 export function getCfApiBase(/* settings */) {
-  return `${WORKER_BASE}/api/proxy/cf`;
+  return `${getWorkerBase()}/api/proxy/cf`;
 }
 
 /**
@@ -30,5 +44,5 @@ export function getCfApiBase(/* settings */) {
  * Equivalent to: https://api.multilogin.com
  */
 export function getMlxApiBase(/* settings */) {
-  return `${WORKER_BASE}/api/proxy/mlx`;
+  return `${getWorkerBase()}/api/proxy/mlx`;
 }

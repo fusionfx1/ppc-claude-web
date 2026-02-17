@@ -65,6 +65,15 @@ export async function loadSettings() {
 
 /** Save one or more settings (upsert) */
 export async function saveSettings(obj) {
+  // Always save to localStorage as fallback
+  try {
+    const existing = JSON.parse(localStorage.getItem("lpf2-settings") || "{}");
+    const merged = { ...existing, ...obj };
+    localStorage.setItem("lpf2-settings", JSON.stringify(merged));
+  } catch (e) {
+    console.warn("[neon] localStorage fallback error:", e.message);
+  }
+
   if (!sql) return false;
   try {
     for (const [key, value] of Object.entries(obj)) {

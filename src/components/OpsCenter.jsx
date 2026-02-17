@@ -5,6 +5,12 @@ import { Card, Btn, Badge, Inp, Dot } from "./Atoms";
 import { leadingCardsApi } from "../services/leadingCards";
 import { multiloginApi } from "../services/multilogin";
 import { detectRisks, RISK_ICONS, RISK_COLORS } from "../utils/risk-engine";
+import registrarApi from "../services/registrar";
+import cloudflareDns from "../services/cloudflare-dns";
+import { DeployTab } from "../components/OpsCenter/deploy/DeployTab.jsx";
+import { api } from "../services/api";
+import { query, execute, testConnection, getTables } from "../services/d1";
+import { getDeploymentHistory } from "../utils/deployers";
 
 /* ─── Shared inline styles ───────────────────────────────────────────── */
 const S = {
@@ -57,11 +63,70 @@ export function OpsCenter({ data, add, del, upd, settings }) {
     const [wizardData, setWizardData] = useState({});
     const [statusMsg, setStatusMsg] = useState(null);            // { msg, type }
     const [syncing, setSyncing] = useState(false);
+    const [testingCfId, setTestingCfId] = useState(null);
+    const [testingRegId, setTestingRegId] = useState(null);
+    const [domainDeployMap, setDomainDeployMap] = useState({});
+    const [domainCfFilter, setDomainCfFilter] = useState("all");
+    const [compactDomainView, setCompactDomainView] = useState(false);
 
     /* ─── Flash a status message for 3s ──────────────────────────────── */
     const flash = (msg, type = "success") => {
         setStatusMsg({ msg, type });
         setTimeout(() => setStatusMsg(null), 3000);
+    };
+
+    const formatBalance = (balance, currency) => {
+        const amount =
+            balance && typeof balance === "object"
+                ? (balance.amount ?? balance.value ?? balance.balance ?? balance?.[0]?.amount ?? balance?.[0]?.balance ?? null)
+                : balance;
+        const curr =
+            currency ||
+            (balance && typeof balance === "object"
+                ? (balance.currency ?? balance?.[0]?.currency ?? "")
+                : "");
+
+        if (amount === null || amount === undefined || amount === "") return "N/A";
+        return curr ? `${amount} ${curr}` : String(amount);
+    };
+
+    const handleTestCfAccount = async (cf) => {
+        const accountId = cf.accountId || cf.account_id || "";
+        const apiToken = cf.apiKey || cf.api_key || "";
+        if (!accountId || !apiToken) {
+            flash("Cloudflare Account ID or API Token is missing", "error");
+            return;
+        }
+
+        setTestingCfId(cf.id);
+        try {
+            const testRes = await api.post("/api/automation/cf-validate", { accountId, apiToken });
+            if (testRes?.success) {
+                flash(`Cloudflare test passed: ${cf.label || cf.email || cf.id}`);
+            } else {
+                flash(testRes?.error || "Cloudflare test failed", "error");
+            }
+        } catch (e) {
+            flash(`Cloudflare test failed: ${e.message}`, "error");
+        } finally {
+            setTestingCfId(null);
+        }
+    };
+
+    const handleTestRegistrarAccount = async (reg) => {
+        setTestingRegId(reg.id);
+        try {
+            const result = await registrarApi.testConnection(reg.id);
+            if (result.success) {
+                flash(`Connected! Balance: ${formatBalance(result.balance, result.currency)}`, "success");
+            } else {
+                flash(`Connection failed: ${result.message || "Unknown error"}`, "error");
+            }
+        } catch (e) {
+            flash(`Connection failed: ${e.message}`, "error");
+        } finally {
+            setTestingRegId(null);
+        }
     };
 
     /* ─── Sync MLX token from settings ──────────────────────────────── */
@@ -117,27 +182,100 @@ export function OpsCenter({ data, add, del, upd, settings }) {
         return () => clearInterval(poll);
     }, [tab]);
 
+    useEffect(() => {
+        const onResize = () => setCompactDomainView(window.innerWidth < 1180);
+        onResize();
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, []);
+
+    useEffect(() => {
+        if (tab !== "domains") return;
+        let cancelled = false;
+
+        const loadDomainDeploys = async () => {
+            try {
+                const history = await getDeploymentHistory(null, null, "success", 300);
+                if (cancelled) return;
+
+                const byDomain = {};
+                const pushRecord = (key, record) => {
+                    if (!key) return;
+                    const normalizedKey = String(key).trim().toLowerCase();
+                    if (!normalizedKey) return;
+
+                    if (!byDomain[normalizedKey]) {
+                        byDomain[normalizedKey] = { targets: {}, latest: null };
+                    }
+
+                    const createdAt = record.createdAt || record.created_at || record.timestamp || "";
+                    const prev = byDomain[normalizedKey].targets[record.target];
+                    if (!prev || new Date(createdAt).getTime() > new Date(prev.createdAt || 0).getTime()) {
+                        byDomain[normalizedKey].targets[record.target] = {
+                            target: record.target,
+                            url: record.url,
+                            createdAt,
+                        };
+                    }
+
+                    if (!byDomain[normalizedKey].latest || new Date(createdAt).getTime() > new Date(byDomain[normalizedKey].latest.createdAt || 0).getTime()) {
+                        byDomain[normalizedKey].latest = {
+                            target: record.target,
+                            url: record.url,
+                            createdAt,
+                        };
+                    }
+                };
+
+                (history || []).forEach((record) => {
+                    if (!record?.url || !record?.target) return;
+                    pushRecord(record.domainId || record.domain_id, record);
+                    pushRecord(record.domain, record);
+                });
+
+                setDomainDeployMap(byDomain);
+            } catch {
+                if (!cancelled) setDomainDeployMap({});
+            }
+        };
+
+        loadDomainDeploys();
+        return () => { cancelled = true; };
+    }, [tab]);
+
     /* ─── Refresh helpers ────────────────────────────────────────────── */
     const refreshCards = () => leadingCardsApi.getCards().then(res => setLcCards(res.results || []));
     const refreshProfiles = () => multiloginApi.getProfiles().then(res => setMlProfiles(res.data?.profiles || res || []));
 
     /* ─── Risk detection via engine ──────────────────────────────────── */
-    const risks = useMemo(() => detectRisks({
-        accounts: data.accounts,
-        payments: data.payments,
-        profiles: data.profiles,
-        domains: data.domains,
-        lcCards,
-    }), [data, lcCards]);
+    const risks = useMemo(() => {
+        // Build proper payments array from lcCards for risk engine
+        const paymentsData = lcCards.map(card => ({
+            id: card.uuid,
+            label: `**** ${card.card_last_4}`,
+            paymentId: card.payment_id,
+            status: card.status,
+        }));
+        return detectRisks({
+            accounts: data.accounts,
+            payments: paymentsData,
+            profiles: data.profiles,
+            domains: data.domains,
+            lcCards,
+        });
+    }, [data, lcCards]);
 
     /* ─── Tabs ───────────────────────────────────────────────────────── */
     const tabs = [
         { id: "overview", label: "Overview", icon: "🏠" },
         { id: "domains", label: "Domains", icon: "🌐", count: data.domains.length },
         { id: "accounts", label: "Ads Accounts", icon: "💰", count: data.accounts.length },
+        { id: "deploy", label: "Deploy", icon: "🚀" },
         { id: "cf", label: "CF Accounts", icon: "☁️", count: data.cfAccounts?.length || 0 },
         { id: "profiles", label: "Profiles", icon: "👤", count: data.profiles.length },
         { id: "payments", label: "Payment Methods", icon: "💳", count: lcCards.length },
+        { id: "api-accounts", label: "API Accounts", icon: "🔑", count: (data.cfAccounts?.length || 0) + (data.registrarAccounts?.length || 0) },
+        { id: "d1", label: "D1 Database", icon: "🗄️" },
         { id: "risks", label: "Risks", icon: "⚠️" },
         { id: "logs", label: "Audit Logs", icon: "📋" },
     ];
@@ -147,6 +285,18 @@ export function OpsCenter({ data, add, del, upd, settings }) {
         if (!lcFilter) return lcCards;
         return lcCards.filter(c => c.status === lcFilter);
     }, [lcCards, lcFilter]);
+
+    const getDomainCfState = (domain) => {
+        const cfAccountId = domain.cfAccountId || domain.cf_account_id || "";
+        const hasCfZone = !!(domain.zoneId || domain.zone_id);
+        return String(domain.cfStatus || domain.cf_status || (hasCfZone ? "active" : cfAccountId ? "pending" : "not-connected")).toLowerCase();
+    };
+
+    const filteredDomains = useMemo(() => {
+        const list = data.domains || [];
+        if (domainCfFilter === "all") return list;
+        return list.filter((d) => getDomainCfState(d) === domainCfFilter);
+    }, [data.domains, domainCfFilter]);
 
     /* ─────────────────────────────────────────────────────────────────
        SHARED COMPONENTS — AddModal, ListTable
@@ -304,21 +454,614 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 TAB: DOMAINS
                 ═══════════════════════════════════════════════════════════ */}
             {tab === "domains" && <>
-                <Btn onClick={() => setModal("domain")} style={{ marginBottom: 12 }}>+ Add Domain</Btn>
-                <ListTable items={data.domains} coll="domains" cols={[
-                    { key: "domain", flex: 2 },
-                    { key: "registrar" },
-                    { key: "cfAccountId", render: i => data.cfAccounts?.find(c => c.id === i.cfAccountId)?.label || "\u2014" },
-                    { key: "status", render: i => <Badge color={i.status === "active" ? T.success : T.warning}>{i.status}</Badge> }
-                ]} />
-                {modal === "domain" && <AddModal title="Add Domain" coll="domains" fields={[
-                    { key: "domain", label: "Domain", ph: "loanbridge.com" },
-                    { key: "registrar", label: "Registrar", options: REGISTRARS },
-                    { key: "cfAccountId", label: "Cloudflare Account", options: data.cfAccounts || [] },
-                    { key: "accountId", label: "Ads Account ID" },
-                    { key: "profileId", label: "Profile ID" }
-                ]} />}
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                    <Btn onClick={() => setModal("domain-check")}>🔍 Check & Register</Btn>
+                    <Btn variant="ghost" onClick={() => setModal("domain-import")}>📥 Import from Registrar</Btn>
+                    <Btn variant="ghost" onClick={() => setModal("domain-add-existing")}>+ Add Existing Domain</Btn>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                    <button style={S.filterBtn(domainCfFilter === "all")} onClick={() => setDomainCfFilter("all")}>CF: All</button>
+                    <button style={S.filterBtn(domainCfFilter === "active")} onClick={() => setDomainCfFilter("active")}>CF: Active</button>
+                    <button style={S.filterBtn(domainCfFilter === "pending")} onClick={() => setDomainCfFilter("pending")}>CF: Pending</button>
+                    <button style={S.filterBtn(domainCfFilter === "not-connected")} onClick={() => setDomainCfFilter("not-connected")}>CF: Not Connected</button>
+                </div>
+
+                {/* Domain list with actions */}
+                <div style={{ marginTop: 12 }}>
+                    {filteredDomains.length === 0
+                        ? <div style={S.emptyState}>No domains yet. Click "Check & Register" to get started.</div>
+                        : <>
+                            {!compactDomainView && <div style={{ display: "flex", gap: 10, padding: "6px 12px", fontSize: 10, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                                <div style={{ flex: 2 }}>Domain</div>
+                                <div style={{ flex: 1 }}>Registrar</div>
+                                <div style={{ flex: 2 }}>Cloudflare</div>
+                                <div style={{ flex: 2.2 }}>Deploy</div>
+                                <div style={{ flex: 1.1 }}>Status</div>
+                                <div style={{ width: 92, textAlign: "right" }}>Actions</div>
+                            </div>}
+                            {filteredDomains.map(d => {
+                            const cfAccountId = d.cfAccountId || d.cf_account_id || "";
+                            const cfAccount = data.cfAccounts?.find(c =>
+                                c.id === cfAccountId || c.accountId === cfAccountId || c.account_id === cfAccountId
+                            );
+                            const deployInfo = domainDeployMap[String(d.id || "").toLowerCase()] || domainDeployMap[String(d.domain || "").toLowerCase()] || { targets: {}, latest: null };
+                            const deployTargets = Object.values(deployInfo.targets || {});
+                            const cfStateRaw = getDomainCfState(d);
+                            const cfStateLabel = cfStateRaw === "active"
+                                ? "Active"
+                                : cfStateRaw === "pending"
+                                    ? "Pending"
+                                    : "Not connected";
+                            const cfStateColor = cfStateRaw === "active"
+                                ? T.success
+                                : cfStateRaw === "pending"
+                                    ? T.warning
+                                    : T.dim;
+                            return (
+                                <div key={d.id} style={{ ...S.row, ...(compactDomainView ? { flexWrap: "wrap", alignItems: "flex-start", gap: 8 } : {}) }}>
+                                    <div style={{ flex: 2, fontWeight: 600, fontSize: 12 }}>{d.domain || "—"}</div>
+                                    <div style={{ flex: 1, fontSize: 11 }}>{d.registrar || "—"}</div>
+                                    <div style={{ flex: 2, fontSize: 11 }}>
+                                        <div>{cfAccount ? cfAccount.label : cfAccountId ? `${cfAccountId.slice(0, 8)}...` : "—"}</div>
+                                        <div style={{ marginTop: 2 }}>
+                                            <Badge color={cfStateColor}>{cfStateLabel}</Badge>
+                                        </div>
+                                    </div>
+                                    <div style={{ flex: 2.2, fontSize: 11 }}>
+                                        {deployTargets.length === 0 ? (
+                                            <span style={{ color: T.dim }}>Not deployed</span>
+                                        ) : (
+                                            <div>
+                                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
+                                                    {deployTargets.map((entry) => (
+                                                        <Badge key={entry.target} color={T.primary}>{entry.target}</Badge>
+                                                    ))}
+                                                </div>
+                                                {deployInfo.latest?.url && (
+                                                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                                        <a
+                                                            href={deployInfo.latest.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ color: T.primary, textDecoration: "none", fontSize: 10 }}
+                                                        >
+                                                            Open latest ↗
+                                                        </a>
+                                                        <button
+                                                            onClick={() => navigator.clipboard?.writeText(deployInfo.latest.url)}
+                                                            style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: 0 }}
+                                                        >
+                                                            Copy URL
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ flex: 1.1 }}>
+                                        <Badge color={d.status === "active" ? T.success : d.status === "pending" ? T.warning : T.dim}>
+                                            {d.status || "unknown"}
+                                        </Badge>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4, width: 92, justifyContent: "flex-end" }}>
+                                        <button onClick={() => setModal({ type: "domain-manage", domain: d })}
+                                            style={{ ...S.miniBtn, background: `${T.primary}22`, color: T.primary }}>Manage</button>
+                                        <button onClick={() => del("domains", d.id)}
+                                            style={{ background: `${T.danger}22`, border: "none", borderRadius: 5, padding: "4px 8px", color: T.danger, cursor: "pointer", fontSize: 10 }}>{"\u2715"}</button>
+                                    </div>
+                                </div>
+                            );
+                            })}
+                        </>}
+                </div>
             </>}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL: CHECK & REGISTER DOMAIN
+                ═══════════════════════════════════════════════════════════ */}
+            {modal === "domain-check" && (() => {
+                const CheckRegisterModal = () => {
+                    const [step, setStep] = useState(1);
+                    const [domain, setDomain] = useState("");
+                    const [available, setAvailable] = useState(null);
+                    const [checking, setChecking] = useState(false);
+                    const [registering, setRegistering] = useState(false);
+                    const [selectedRegistrar, setSelectedRegistrar] = useState("internetbs");
+                    const [selectedCfAccount, setSelectedCfAccount] = useState("");
+                    const [zoneId, setZoneId] = useState(null);
+                    const [nameservers, setNameservers] = useState([]);
+                    const [error, setError] = useState(null);
+
+                    const handleCheck = async () => {
+                        if (!domain || !domain.includes(".")) {
+                            setError("Please enter a valid domain");
+                            return;
+                        }
+                        setChecking(true);
+                        setError(null);
+                        try {
+                            const result = await registrarApi.checkAvailability(domain);
+                            setAvailable(result.available);
+                            if (!result.success) {
+                                setError(result.message || "Check failed");
+                            }
+                        } catch (e) {
+                            setError(e.message);
+                        } finally {
+                            setChecking(false);
+                        }
+                    };
+
+                    const handleRegister = async () => {
+                        setRegistering(true);
+                        setError(null);
+                        try {
+                            let finalZoneId = null;
+                            let finalNameservers = [];
+
+                            // Register domain
+                            const regResult = await registrarApi.registerDomain({
+                                domain,
+                                period: "1Y",
+                                accountId: selectedRegistrar,
+                            });
+
+                            if (!regResult.success) {
+                                setError(regResult.message || "Registration failed");
+                                setRegistering(false);
+                                return;
+                            }
+
+                            // Add to Cloudflare - get API token from selected CF account
+                            if (selectedCfAccount) {
+                                const cfAccount = data.cfAccounts?.find(c => c.id === selectedCfAccount);
+                                if (cfAccount?.api_key) {
+                                    const zoneResult = await cloudflareDns.getOrCreateZone(domain, selectedCfAccount, cfAccount.api_key);
+                                    if (zoneResult.success) {
+                                        finalZoneId = zoneResult.zoneId;
+                                        finalNameservers = zoneResult.nameservers || [];
+                                        setZoneId(finalZoneId);
+                                        setNameservers(finalNameservers);
+
+                                        // Update nameservers at registrar
+                                        await registrarApi.updateNameservers(domain, finalNameservers, selectedRegistrar);
+                                    } else {
+                                        setError("Failed to add to Cloudflare: " + zoneResult.error);
+                                        setRegistering(false);
+                                        return;
+                                    }
+                                }
+                            }
+
+                            // Add to local database
+                            add("domains", {
+                                id: uid(),
+                                domain,
+                                registrar: data.registrarAccounts?.find(r => r.id === selectedRegistrar)?.provider || "internetbs",
+                                registrarAccountId: selectedRegistrar,
+                                cfAccountId: selectedCfAccount,
+                                zoneId: finalZoneId,
+                                nameservers: finalNameservers,
+                                status: finalZoneId ? "active" : "pending",
+                                cfStatus: finalZoneId ? "active" : "pending",
+                                createdAt: now(),
+                            });
+
+                            flash(`Domain ${domain} registered and added to Cloudflare!`, "success");
+                            setModal(null);
+                        } catch (e) {
+                            setError(e.message);
+                        } finally {
+                            setRegistering(false);
+                        }
+                    };
+
+                    return (
+                        <div style={S.overlay}>
+                            <Card style={{ width: 500, padding: 24, animation: "fadeIn .2s" }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>🔍 Check & Register Domain</h3>
+
+                                {/* Step 1: Check availability */}
+                                {step === 1 && <>
+                                    <div style={S.fieldWrap}>
+                                        <label style={S.label}>Domain Name</label>
+                                        <Inp value={domain} onChange={setDomain} placeholder="example.com" />
+                                    </div>
+                                    {error && <div style={{ padding: 8, marginBottom: 12, borderRadius: 6, background: `${T.danger}12`, color: T.danger, fontSize: 12 }}>{error}</div>}
+                                    {available !== null && (
+                                        <div style={{ padding: 8, marginBottom: 12, borderRadius: 6, background: available ? `${T.success}12` : `${T.danger}12`, color: available ? T.success : T.danger, fontSize: 12 }}>
+                                            {available ? `✓ ${domain} is available!` : `✗ ${domain} is not available.`}
+                                        </div>
+                                    )}
+                                    <div style={S.btnRow}>
+                                        <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
+                                        {available === true ? (
+                                            <Btn onClick={() => setStep(2)}>Next →</Btn>
+                                        ) : (
+                                            <Btn onClick={handleCheck} disabled={checking}>{checking ? "Checking..." : "Check Availability"}</Btn>
+                                        )}
+                                    </div>
+                                </>}
+
+                                {/* Step 2: Configure */}
+                                {step === 2 && <>
+                                    <div style={{ marginBottom: 16 }}>
+                                        <div style={{ fontSize: 12, color: T.muted }}>Domain</div>
+                                        <div style={{ fontSize: 14, fontWeight: 600 }}>{domain}</div>
+                                        <div style={{ fontSize: 11, color: T.success }}>✓ Available</div>
+                                    </div>
+
+                                    <div style={S.fieldWrap}>
+                                        <label style={S.label}>Registrar Account</label>
+                                        <select value={selectedRegistrar} onChange={e => setSelectedRegistrar(e.target.value)} style={S.select}>
+                                            <option value="">Select registrar account...</option>
+                                            {(data.registrarAccounts || []).filter(r => r.provider === "internetbs").map(r => (
+                                                <option key={r.id} value={r.id}>{r.label || r.provider}</option>
+                                            ))}
+                                        </select>
+                                        {(!data.registrarAccounts || data.registrarAccounts.length === 0) && (
+                                            <div style={{ fontSize: 10, color: T.warning, marginTop: 4 }}>
+                                                No registrar accounts. <button onClick={() => { setModal("registrar-account"); setStep(1); }} style={{ background: "none", border: "none", color: T.primary, cursor: "pointer", textDecoration: "underline" }}>Add one first</button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={S.fieldWrap}>
+                                        <label style={S.label}>Cloudflare Account</label>
+                                        <select value={selectedCfAccount} onChange={e => setSelectedCfAccount(e.target.value)} style={S.select}>
+                                            <option value="">Select...</option>
+                                            {data.cfAccounts?.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                                        </select>
+                                        {(!data.cfAccounts || data.cfAccounts.length === 0) && (
+                                            <div style={{ fontSize: 10, color: T.warning, marginTop: 4 }}>
+                                                No Cloudflare accounts. <button onClick={() => { setModal("cf-account"); setStep(1); }} style={{ background: "none", border: "none", color: T.primary, cursor: "pointer", textDecoration: "underline" }}>Add one first</button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {error && <div style={{ padding: 8, marginBottom: 12, borderRadius: 6, background: `${T.danger}12`, color: T.danger, fontSize: 12 }}>{error}</div>}
+
+                                    <div style={{ padding: 10, background: `${T.primary}10`, borderRadius: 6, marginBottom: 12, fontSize: 11 }}>
+                                        <strong>Flow:</strong> Register → Add to Cloudflare → Update Nameservers
+                                    </div>
+
+                                    <div style={S.btnRow}>
+                                        <Btn variant="ghost" onClick={() => setStep(1)}>← Back</Btn>
+                                        <Btn onClick={handleRegister} disabled={registering || !selectedCfAccount || !selectedRegistrar}>
+                                            {registering ? "Registering..." : "Register & Setup"}
+                                        </Btn>
+                                    </div>
+                                </>}
+                            </Card>
+                        </div>
+                    );
+                };
+                return <CheckRegisterModal />;
+            })()}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL: IMPORT DOMAINS FROM REGISTRAR
+                ═══════════════════════════════════════════════════════════ */}
+            {modal === "domain-import" && (() => {
+                const ImportModal = () => {
+                    const [importing, setImporting] = useState(false);
+                    const [selectedRegistrarAccount, setSelectedRegistrarAccount] = useState("");
+                    const [imported, setImported] = useState([]);
+
+                    const handleImport = async () => {
+                        if (!selectedRegistrarAccount) {
+                            flash("Please select a registrar account", "error");
+                            return;
+                        }
+                        setImporting(true);
+                        try {
+                            const result = await registrarApi.listDomains(selectedRegistrarAccount);
+                            if (result.success && result.domains) {
+                                setImported(result.domains);
+
+                                // Add domains to local DB
+                                for (const d of result.domains.slice(0, 10)) {
+                                    const exists = data.domains.find(existing => existing.domain === d.domain);
+                                    if (!exists) {
+                                        add("domains", {
+                                            id: uid(),
+                                            domain: typeof d === "string" ? d : d.domain,
+                                            registrar: data.registrarAccounts?.find(r => r.id === selectedRegistrarAccount)?.provider || "internetbs",
+                                            registrarAccountId: selectedRegistrarAccount,
+                                            status: typeof d === "string" ? "ACTIVE" : (d.status || "active"),
+                                            createdAt: now(),
+                                        });
+                                    }
+                                }
+                                flash(`Imported ${Math.min(result.domains.length, 10)} domains`);
+                            } else {
+                                flash(result.message || "Import failed", "error");
+                            }
+                        } catch (e) {
+                            flash(`Import failed: ${e.message}`, "error");
+                        } finally {
+                            setImporting(false);
+                        }
+                    };
+
+                    return (
+                        <div style={S.overlay}>
+                            <Card style={{ width: 450, padding: 24, animation: "fadeIn .2s" }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>📥 Import from Registrar</h3>
+
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Registrar Account</label>
+                                    <select value={selectedRegistrarAccount} onChange={e => setSelectedRegistrarAccount(e.target.value)} style={S.select}>
+                                        <option value="">Select account...</option>
+                                        {(data.registrarAccounts || []).map(r => (
+                                            <option key={r.id} value={r.id}>{r.label || r.provider}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {imported.length > 0 && (
+                                    <div style={{ marginTop: 12, maxHeight: 200, overflowY: "auto" }}>
+                                        <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Imported domains:</div>
+                                        {imported.slice(0, 10).map((d, i) => (
+                                            <div key={i} style={{ padding: "4px 8px", fontSize: 12, borderBottom: `1px solid ${T.border}` }}>
+                                                {typeof d === "string" ? d : d.domain} <Badge color={(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim} style={{ float: "right" }}>{typeof d === "string" ? "ACTIVE" : d.status}</Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div style={S.btnRow}>
+                                    <Btn variant="ghost" onClick={() => setModal(null)}>Close</Btn>
+                                    <Btn onClick={handleImport} disabled={importing || !selectedRegistrarAccount}>{importing ? "Importing..." : "Import"}</Btn>
+                                </div>
+                            </Card>
+                        </div>
+                    );
+                };
+                return <ImportModal />;
+            })()}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL: ADD EXISTING DOMAIN
+                ═══════════════════════════════════════════════════════════ */}
+            {modal === "domain-add-existing" && <AddModal title="Add Existing Domain" coll="domains" fields={[
+                { key: "domain", label: "Domain", ph: "loanbridge.com" },
+                { key: "registrar", label: "Registrar", options: REGISTRARS },
+                { key: "cfAccountId", label: "Cloudflare Account", options: data.cfAccounts || [] },
+                { key: "accountId", label: "Ads Account ID" },
+                { key: "profileId", label: "Profile ID" }
+            ]} onSubmit={(form) => {
+                const hasCfAccount = !!String(form.cfAccountId || "").trim();
+                add("domains", {
+                    id: uid(),
+                    ...form,
+                    status: form.status || "pending",
+                    cfStatus: hasCfAccount ? "pending" : "not-connected",
+                    createdAt: now(),
+                });
+            }} />}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL: MANAGE DOMAIN
+                ═══════════════════════════════════════════════════════════ */}
+            {modal && modal.type === "domain-manage" && (() => {
+                const ManageDomainModal = () => {
+                    const d = modal.domain;
+                    const nameserverList = Array.isArray(d.nameservers)
+                        ? d.nameservers
+                        : typeof d.nameservers === "string"
+                            ? d.nameservers
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean)
+                            : [];
+                    const [addingToCf, setAddingToCf] = useState(false);
+                    const [updatingNs, setUpdatingNs] = useState(false);
+                    const [selectedCfAccount, setSelectedCfAccount] = useState(d.cfAccountId || "");
+                    const [actionMsg, setActionMsg] = useState(null); // { type: 'success'|'error'|'info', msg }
+
+                    const withTimeout = (promise, ms = 25000) => Promise.race([
+                        promise,
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error("Request timed out. Please try again.")), ms)
+                        ),
+                    ]);
+
+                    const handleAddToCloudflare = async () => {
+                        if (!selectedCfAccount) {
+                            const msg = "Select a Cloudflare account first";
+                            flash(msg, "error");
+                            setActionMsg({ type: "error", msg });
+                            return;
+                        }
+                        setAddingToCf(true);
+                        setActionMsg({ type: "info", msg: "Adding domain to Cloudflare..." });
+                        try {
+                            // Get CF API token from the selected CF account
+                            const cfAccount = data.cfAccounts?.find(c => c.id === selectedCfAccount);
+                            const cfToken = (cfAccount?.api_key || cfAccount?.apiKey || cfAccount?.api_token || cfAccount?.apiToken || "").trim();
+                            if (!cfToken) {
+                                flash("Cloudflare API token not found for this account", "error");
+                                setActionMsg({ type: "error", msg: "Cloudflare API token not found for this account" });
+                                setAddingToCf(false);
+                                return;
+                            }
+
+                            const result = await withTimeout(
+                                cloudflareDns.getOrCreateZone(d.domain, selectedCfAccount, cfToken)
+                            );
+                            if (result.success) {
+                                // Update domain record and require persistence success
+                                const updatePayload = {
+                                    cfAccountId: selectedCfAccount,
+                                    zoneId: result.zoneId,
+                                    nameservers: result.nameservers,
+                                    status: "active",
+                                    cfStatus: "active",
+                                };
+                                const saveRes = await upd("domains", d.id, updatePayload);
+                                if (saveRes?.error) {
+                                    const errMsg = saveRes.detail || saveRes.error || "Failed to save domain update";
+                                    flash(errMsg, "error");
+                                    setActionMsg({ type: "error", msg: errMsg });
+                                    return;
+                                }
+
+                                flash(`Added ${d.domain} to Cloudflare`);
+                                setActionMsg({ type: "success", msg: `Added ${d.domain} to Cloudflare` });
+                                setModal(null);
+                            } else {
+                                flash(result.error, "error");
+                                setActionMsg({ type: "error", msg: result.error || "Failed to add to Cloudflare" });
+                            }
+                        } catch (e) {
+                            flash(`Failed: ${e.message}`, "error");
+                            setActionMsg({ type: "error", msg: `Failed: ${e.message}` });
+                        } finally {
+                            setAddingToCf(false);
+                        }
+                    };
+
+                    const handleUpdateNameservers = async () => {
+                        setUpdatingNs(true);
+                        setActionMsg({ type: "info", msg: "Updating nameservers at registrar..." });
+                        try {
+                            const currentNs = nameserverList.filter(ns => ns && ns !== "[]");
+                            if (currentNs.length === 0 && !d.zoneId) {
+                                flash("Add this domain to Cloudflare first, then update nameservers", "error");
+                                setActionMsg({ type: "error", msg: "Add this domain to Cloudflare first, then update nameservers" });
+                                setUpdatingNs(false);
+                                return;
+                            }
+
+                            const ns = currentNs.length > 0
+                                ? currentNs
+                                : registrarApi.getCloudflareNameservers();
+
+                            // Resolve registrar account id (stored id preferred, then provider match)
+                            const provider = String(d.registrar || "").toLowerCase();
+                            const matchedRegistrar = (data.registrarAccounts || []).find(r =>
+                                String(r.id || "") === String(d.registrarAccountId || "") ||
+                                (provider && String(r.provider || "").toLowerCase() === provider)
+                            );
+                            const accountId = d.registrarAccountId || matchedRegistrar?.id || undefined;
+                            if (!accountId) {
+                                const errMsg = "No matching registrar account found for this domain";
+                                flash(errMsg, "error");
+                                setActionMsg({ type: "error", msg: errMsg });
+                                setUpdatingNs(false);
+                                return;
+                            }
+
+                            const result = await withTimeout(
+                                registrarApi.updateNameservers(d.domain, ns, accountId)
+                            );
+                            if (result.success) {
+                                const okMsg = result.message ? `Nameservers updated: ${result.message}` : "Nameservers updated at registrar";
+                                flash(okMsg);
+                                setActionMsg({ type: "success", msg: okMsg });
+                            } else {
+                                const errMsg = result.error || result.message || "Update failed";
+                                flash(errMsg, "error");
+                                setActionMsg({ type: "error", msg: errMsg });
+                            }
+                        } catch (e) {
+                            flash(`Failed: ${e.message}`, "error");
+                            setActionMsg({ type: "error", msg: `Failed: ${e.message}` });
+                        } finally {
+                            setUpdatingNs(false);
+                        }
+                    };
+
+                    return (
+                        <div style={S.overlay}>
+                            <Card style={{ width: 480, padding: 24, animation: "fadeIn .2s" }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Manage {d.domain}</h3>
+
+                                <div style={{ marginBottom: 16 }}>
+                                    <div style={{ fontSize: 11, color: T.muted }}>Registrar</div>
+                                    <div style={{ fontSize: 13 }}>{d.registrar || "\u2014"}</div>
+                                </div>
+
+                                <div style={{ marginBottom: 16 }}>
+                                    <div style={{ fontSize: 11, color: T.muted }}>Status</div>
+                                    <Badge color={d.status === "active" ? T.success : T.warning}>{d.status || "unknown"}</Badge>
+                                </div>
+
+                                {actionMsg && (
+                                    <div
+                                        style={{
+                                            marginBottom: 12,
+                                            padding: "8px 10px",
+                                            borderRadius: 6,
+                                            fontSize: 11,
+                                            background:
+                                                actionMsg.type === "success"
+                                                    ? `${T.success}14`
+                                                    : actionMsg.type === "error"
+                                                        ? `${T.danger}14`
+                                                        : `${T.primary}12`,
+                                            color:
+                                                actionMsg.type === "success"
+                                                    ? T.success
+                                                    : actionMsg.type === "error"
+                                                        ? T.danger
+                                                        : T.primary,
+                                            border: `1px solid ${actionMsg.type === "success" ? `${T.success}44` : actionMsg.type === "error" ? `${T.danger}44` : `${T.primary}44`}`,
+                                        }}
+                                    >
+                                        {actionMsg.msg}
+                                    </div>
+                                )}
+
+                                {d.zoneId ? (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <div style={{ fontSize: 11, color: T.muted }}>Cloudflare Zone</div>
+                                        <div style={{ fontSize: 13, fontFamily: "monospace" }}>{d.zoneId}</div>
+                                        <div style={{ fontSize: 10, color: T.success }}>✓ Connected to Cloudflare</div>
+                                    </div>
+                                ) : (
+                                    <div style={S.fieldWrap}>
+                                        <label style={S.label}>Add to Cloudflare Account</label>
+                                        <select value={selectedCfAccount} onChange={e => setSelectedCfAccount(e.target.value)} style={S.select}>
+                                            <option value="">Select account...</option>
+                                            {data.cfAccounts?.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                                        </select>
+                                        {!selectedCfAccount && (
+                                            <div style={{ fontSize: 10, color: T.warning, marginTop: 6 }}>
+                                                Select Cloudflare account before adding this domain.
+                                            </div>
+                                        )}
+                                        <Btn onClick={handleAddToCloudflare} disabled={addingToCf} style={{ marginTop: 8, fontSize: 12 }}>
+                                            {addingToCf ? "Adding..." : "Add to Cloudflare"}
+                                        </Btn>
+                                    </div>
+                                )}
+
+                                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Nameservers</div>
+                                    {nameserverList.length > 0 ? (
+                                        <div style={{ fontSize: 11 }}>
+                                            {nameserverList.map((ns, i) => <div key={i}>{ns}</div>)}
+                                        </div>
+                                    ) : (
+                                        <div style={{ fontSize: 11, color: T.dim }}>Not set</div>
+                                    )}
+                                    <Btn variant="ghost" onClick={handleUpdateNameservers} disabled={updatingNs} style={{ marginTop: 8, fontSize: 11 }}>
+                                        {updatingNs ? "Updating..." : "Update Nameservers"}
+                                    </Btn>
+                                </div>
+
+                                <div style={S.btnRow}>
+                                    <Btn onClick={() => setModal(null)}>Close</Btn>
+                                </div>
+                            </Card>
+                        </div>
+                    );
+                };
+                return <ManageDomainModal />;
+            })()}
 
             {/* ═══════════════════════════════════════════════════════════
                 TAB: ACCOUNTS (Task 9 + Task 12)
@@ -510,13 +1253,33 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 TAB: CF ACCOUNTS
                 ═══════════════════════════════════════════════════════════ */}
             {tab === "cf" && <>
-                <Btn onClick={() => setModal("cf")} style={{ marginBottom: 12 }}>+ Add Cloudflare Account</Btn>
-                <ListTable items={data.cfAccounts} coll="cf-accounts" cols={[{ key: "label", flex: 2 }, { key: "email" }]} />
-                {modal === "cf" && <AddModal title="Add Cloudflare Account" coll="cf-accounts" fields={[
-                    { key: "label", label: "Label", ph: "CF Account 1" },
-                    { key: "email", label: "Login Email", ph: "user@example.com" },
-                    { key: "apiKey", label: "Global API Key", type: "password" }
-                ]} />}
+                <Btn onClick={() => setModal("cf-account")} style={{ marginBottom: 12 }}>+ Add Cloudflare Account</Btn>
+                {(!data.cfAccounts || data.cfAccounts.length === 0)
+                    ? <div style={S.emptyState}>No Cloudflare accounts yet</div>
+                    : data.cfAccounts.map(cf => (
+                        <div key={cf.id} style={S.row}>
+                            <div style={{ flex: 2, fontWeight: 600, fontSize: 12 }}>{cf.label || "—"}</div>
+                            <div style={{ flex: 2, fontSize: 11 }}>{cf.email || "—"}</div>
+                            <div style={{ flex: 2, fontSize: 11, fontFamily: "monospace" }}>{(cf.accountId || cf.account_id || "—")}</div>
+                            <div style={{ display: "flex", gap: 4 }}>
+                                <button
+                                    onClick={() => handleTestCfAccount(cf)}
+                                    disabled={testingCfId === cf.id}
+                                    style={{ ...S.miniBtn, background: `${T.success}22`, color: T.success, border: "none", borderRadius: 5, cursor: "pointer" }}
+                                >
+                                    {testingCfId === cf.id ? "Testing..." : "Test"}
+                                </button>
+                                <button onClick={() => setModal({ type: "cf-account-edit", account: cf })}
+                                    style={{ ...S.miniBtn, background: `${T.primary}22`, color: T.primary }}>Edit</button>
+                                <button onClick={() => {
+                                    if (confirm(`Delete CF account "${cf.label}"?`)) {
+                                        del("cf-accounts", cf.id);
+                                        flash("CF account deleted");
+                                    }
+                                }} style={{ background: `${T.danger}22`, border: "none", borderRadius: 5, padding: "4px 8px", color: T.danger, cursor: "pointer", fontSize: 10 }}>{"✕"}</button>
+                            </div>
+                        </div>
+                    ))}
             </>}
 
             {/* ═══════════════════════════════════════════════════════════
@@ -1004,6 +1767,331 @@ export function OpsCenter({ data, add, del, upd, settings }) {
             )}
 
             {/* ═══════════════════════════════════════════════════════════
+                TAB: API ACCOUNTS (Cloudflare + Registrar)
+                ═══════════════════════════════════════════════════════════ */}
+            {tab === "api-accounts" && (
+                <div>
+                    {/* Cloudflare Accounts Section */}
+                    <div style={{ marginBottom: 32 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                            <div style={S.sectionTitle}>☁️ Cloudflare Accounts</div>
+                            <Btn onClick={() => setModal("cf-account")}>+ Add CF Account</Btn>
+                        </div>
+                        {(!data.cfAccounts || data.cfAccounts.length === 0)
+                            ? <div style={{ ...S.emptyState, marginBottom: 16 }}>No Cloudflare accounts yet</div>
+                            : data.cfAccounts.map(cf => (
+                                <div key={cf.id} style={S.row}>
+                                    <div style={{ flex: 2, fontWeight: 600, fontSize: 12 }}>{cf.label || "\u2014"}</div>
+                                    <div style={{ flex: 2, fontSize: 11 }}>{cf.email || "\u2014"}</div>
+                                    <div style={{ flex: 3, fontSize: 11, fontFamily: "monospace" }}>
+                                        {cf.api_key ? `•••${cf.api_key.slice(-4)}` : "\u2014"}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                        <button
+                                            onClick={() => handleTestCfAccount(cf)}
+                                            disabled={testingCfId === cf.id}
+                                            style={{ ...S.miniBtn, background: `${T.success}22`, color: T.success }}
+                                        >
+                                            {testingCfId === cf.id ? "Testing..." : "Test"}
+                                        </button>
+                                        <button onClick={() => setModal({ type: "cf-account-edit", account: cf })}
+                                            style={{ ...S.miniBtn, background: `${T.primary}22`, color: T.primary }}>Edit</button>
+                                        <button onClick={() => {
+                                            if (confirm(`Delete CF account "${cf.label}"?`)) {
+                                                del("cf-accounts", cf.id);
+                                                flash("CF account deleted");
+                                            }
+                                        }} style={{ background: `${T.danger}22`, border: "none", borderRadius: 5, padding: "4px 8px", color: T.danger, cursor: "pointer", fontSize: 10 }}>✕</button>
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+
+                    {/* Registrar Accounts Section */}
+                    <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                            <div style={S.sectionTitle}>🌐 Registrar Accounts</div>
+                            <Btn onClick={() => setModal("registrar-account")}>+ Add Registrar</Btn>
+                        </div>
+                        {(!data.registrarAccounts || data.registrarAccounts.length === 0)
+                            ? <div style={S.emptyState}>No registrar accounts yet. Add one to register domains.</div>
+                            : data.registrarAccounts.map(reg => (
+                                <div key={reg.id} style={S.row}>
+                                    <div style={{ flex: 1, fontWeight: 600, fontSize: 12 }}>{reg.label || reg.provider || "\u2014"}</div>
+                                    <div style={{ flex: 1, fontSize: 11 }}>
+                                        <Badge color={T.primary}>{reg.provider || "internetbs"}</Badge>
+                                    </div>
+                                    <div style={{ flex: 2, fontSize: 11, fontFamily: "monospace" }}>
+                                        {reg.api_key ? `•••${reg.api_key.slice(-4)}` : "\u2014"}
+                                    </div>
+                                    <div style={{ flex: 1, fontSize: 11 }}>
+                                        {reg.status === "active" ? <Badge color={T.success}>Active</Badge> : <Badge color={T.dim}>{reg.status || "\u2014"}</Badge>}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                        <button
+                                            onClick={() => handleTestRegistrarAccount(reg)}
+                                            disabled={testingRegId === reg.id}
+                                            style={{ ...S.miniBtn, background: `${T.success}22`, color: T.success }}
+                                        >
+                                            {testingRegId === reg.id ? "Testing..." : "Test"}
+                                        </button>
+                                        <button onClick={() => {
+                                            if (confirm(`Delete "${reg.label}"?`)) {
+                                                // Remove via API
+                                                api.del(`/registrar-accounts/${reg.id}`).catch(() => {});
+                                                // Update local state via parent del function
+                                                del("registrar-accounts", reg.id);
+                                                flash("Registrar account deleted");
+                                            }
+                                        }} style={{ background: `${T.danger}22`, border: "none", borderRadius: 5, padding: "4px 8px", color: T.danger, cursor: "pointer", fontSize: 10 }}>{"\u2715"}</button>
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════
+                TAB: DEPLOY
+                ═══════════════════════════════════════════════════════════ */}
+            {tab === "deploy" && (
+                <DeployTab
+                    data={data}
+                    settings={settings}
+                    add={add}
+                    del={del}
+                    upd={upd}
+                    notify={(msg, type) => flash(msg, type)}
+                />
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════
+                TAB: D1 DATABASE
+                ═══════════════════════════════════════════════════════════ */}
+            {tab === "d1" && (() => {
+                const [sqlQuery, setSqlQuery] = useState("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name");
+                const [queryResult, setQueryResult] = useState(null);
+                const [queryError, setQueryError] = useState(null);
+                const [tables, setTables] = useState([]);
+                const [selectedTable, setSelectedTable] = useState(null);
+                const [tableData, setTableData] = useState(null);
+                const [loading, setLoading] = useState(false);
+                const [connectionStatus, setConnectionStatus] = useState(null);
+
+                // Load tables function
+                const loadTables = async () => {
+                    const result = await getTables();
+                    if (result.success) {
+                        setTables(result.tables || []);
+                    }
+                };
+
+                // Test connection on mount
+                useEffect(() => {
+                    const testConn = async () => {
+                        const result = await testConnection();
+                        setConnectionStatus(result);
+                        if (result.success) {
+                            loadTables();
+                        }
+                    };
+                    testConn();
+                    // eslint-disable-next-line react-hooks/exhaustive-deps
+                }, []);
+
+                const handleRunQuery = async () => {
+                    if (!sqlQuery.trim()) return;
+                    setLoading(true);
+                    setQueryError(null);
+                    setQueryResult(null);
+                    const result = await query(sqlQuery);
+                    setLoading(false);
+                    if (result.success) {
+                        setQueryResult(result.results || []);
+                    } else {
+                        setQueryError(result.error);
+                    }
+                };
+
+                const handleViewTable = async (tableName) => {
+                    setSelectedTable(tableName);
+                    setLoading(true);
+                    const result = await query(`SELECT * FROM ${tableName} LIMIT 100`);
+                    setLoading(false);
+                    if (result.success) {
+                        setTableData(result.results || []);
+                    } else {
+                        setQueryError(result.error);
+                    }
+                };
+
+                const QuickTableBtn = ({ name, onClick }) => (
+                    <button
+                        onClick={onClick}
+                        style={{
+                            padding: "8px 14px",
+                            background: T.card2,
+                            border: `1px solid ${T.border}`,
+                            borderRadius: 6,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            color: T.text,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                        }}
+                    >
+                        📊 {name}
+                    </button>
+                );
+
+                const ResultTable = ({ data }) => {
+                    if (!data || data.length === 0) {
+                        return <div style={{ padding: 20, textAlign: "center", color: T.dim }}>No results</div>;
+                    }
+                    const columns = Object.keys(data[0]);
+
+                    return (
+                        <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
+                            <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+                                <thead style={{ position: "sticky", top: 0, background: T.card2 }}>
+                                    <tr>
+                                        {columns.map(col => (
+                                            <th key={col} style={{
+                                                padding: "8px 12px",
+                                                textAlign: "left",
+                                                borderBottom: `2px solid ${T.border}`,
+                                                color: T.primary,
+                                                fontWeight: 600,
+                                            }}>
+                                                {col}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.map((row, i) => (
+                                        <tr key={i} style={{ borderBottom: `1px solid ${T.border22}` }}>
+                                            {columns.map(col => (
+                                                <td key={col} style={{
+                                                    padding: "6px 12px",
+                                                    maxWidth: 300,
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                }}>
+                                                    {row[col]?.toString() || "NULL"}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    );
+                };
+
+                return (
+                    <div>
+                        {/* Connection Status */}
+                        <Card style={{ marginBottom: 12 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
+                                    🗄️ D1 Database Connection
+                                </span>
+                                {connectionStatus && (
+                                    <Badge type={connectionStatus.success ? "success" : "danger"}>
+                                        {connectionStatus.success ? "✓ Connected" : "✗ " + (connectionStatus.error || "Failed")}
+                                    </Badge>
+                                )}
+                            </div>
+                        </Card>
+
+                        {/* Quick Table Access */}
+                        {tables.length > 0 && (
+                            <Card style={{ marginBottom: 12 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                                    📊 Tables ({tables.length})
+                                </div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                    {tables.map(t => (
+                                        <QuickTableBtn
+                                            key={t}
+                                            name={t}
+                                            onClick={() => handleViewTable(t)}
+                                        />
+                                    ))}
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* SQL Query Editor */}
+                        <Card style={{ marginBottom: 12 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                                🔍 SQL Query
+                            </div>
+                            <textarea
+                                value={sqlQuery}
+                                onChange={(e) => setSqlQuery(e.target.value)}
+                                placeholder="SELECT * FROM table_name WHERE condition = ?"
+                                style={{
+                                    width: "100%",
+                                    minHeight: 80,
+                                    padding: 10,
+                                    borderRadius: 7,
+                                    background: T.input,
+                                    border: `1px solid ${T.border}`,
+                                    color: T.text,
+                                    fontSize: 12,
+                                    fontFamily: "monospace",
+                                    resize: "vertical",
+                                    boxSizing: "border-box",
+                                }}
+                            />
+                            <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
+                                <Btn
+                                    onClick={handleRunQuery}
+                                    disabled={loading}
+                                    style={{ minWidth: 80 }}
+                                >
+                                    {loading ? "..." : "▶ Run Query"}
+                                </Btn>
+                            </div>
+                        </Card>
+
+                        {/* Query Error */}
+                        {queryError && (
+                            <Card style={{ marginBottom: 12, border: `1px solid ${T.danger}`, background: `${T.danger}11` }}>
+                                <div style={{ fontSize: 12, color: T.danger }}>
+                                    ❌ {queryError}
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* Query Results */}
+                        {queryResult && (
+                            <Card>
+                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                                    📋 Results ({queryResult.length} rows)
+                                </div>
+                                <ResultTable data={queryResult} />
+                            </Card>
+                        )}
+
+                        {/* Table Data View */}
+                        {tableData && selectedTable && (
+                            <Card>
+                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                                    📊 Table: {selectedTable} ({tableData.length} rows)
+                                </div>
+                                <ResultTable data={tableData} />
+                            </Card>
+                        )}
+                    </div>
+                );
+            })()}
+
+            {/* ═══════════════════════════════════════════════════════════
                 TAB: LOGS
                 ═══════════════════════════════════════════════════════════ */}
             {tab === "logs" && (
@@ -1284,6 +2372,201 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     );
                 };
                 return <WizardModal />;
+            })()}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL: ADD CLOUDFLARE ACCOUNT
+                ═══════════════════════════════════════════════════════════ */}
+            {modal === "cf-account" && (() => {
+                const CfAccountModal = () => {
+                    const [form, setForm] = useState({ label: "", email: "", account_id: "", api_key: "" });
+                    const [saving, setSaving] = useState(false);
+
+                    const handleSave = async () => {
+                        if (!form.label || !form.account_id || !form.api_key) {
+                            flash("Label, Account ID, and API Token are required", "error");
+                            return;
+                        }
+                        setSaving(true);
+                        try {
+                            // Validate API key via our proxy (avoids CORS)
+                            const testRes = await api.post("/api/automation/cf-validate", {
+                                accountId: form.account_id,
+                                apiToken: form.api_key,
+                            });
+                            if (!testRes.success) {
+                                flash(testRes.error || "Invalid Cloudflare API Token or Account ID", "error");
+                                setSaving(false);
+                                return;
+                            }
+
+                            // Save to API first and require success before updating UI state
+                            const payload = {
+                                id: uid(),
+                                ...form,
+                                apiKey: form.api_key || "",
+                                accountId: form.account_id || "",
+                                apiToken: form.api_token || "",
+                            };
+                            const saveRes = await api.post("/cf-accounts", payload);
+                            if (saveRes?.error) {
+                                flash(saveRes.detail || saveRes.error || "Failed to save Cloudflare account", "error");
+                                setSaving(false);
+                                return;
+                            }
+
+                            // Update local state only (API already saved above)
+                            add("cf-accounts", { ...payload }, { persist: false });
+                            flash("Cloudflare account added");
+                            setModal(null);
+                        } catch (e) {
+                            flash(`Failed: ${e.message}`, "error");
+                        } finally {
+                            setSaving(false);
+                        }
+                    };
+
+                    return (
+                        <div style={S.overlay}>
+                            <Card style={{ width: 480, padding: 24, animation: "fadeIn .2s" }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Add Cloudflare Account</h3>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Label</label>
+                                    <Inp value={form.label} onChange={v => setForm({ ...form, label: v })} placeholder="Main CF Account" />
+                                </div>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Account ID <span style={{color: T.danger}}>*</span></label>
+                                    <Inp value={form.account_id} onChange={v => setForm({ ...form, account_id: v })} placeholder="32-character hex ID" />
+                                    <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
+                                        Found in Cloudflare dashboard → URL: /accounts/<strong style={{color: T.primary}}>YourAccountID</strong>
+                                    </div>
+                                </div>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Email (optional)</label>
+                                    <Inp value={form.email} onChange={v => setForm({ ...form, email: v })} placeholder="cf@example.com" />
+                                </div>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>API Token (Global Key) <span style={{color: T.danger}}>*</span></label>
+                                    <Inp value={form.api_key} onChange={v => setForm({ ...form, api_key: v })} placeholder="••••" type="password" />
+                                    <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
+                                        Needs Zone:Zone, DNS:Edit, Zone:Read permissions
+                                    </div>
+                                </div>
+                                <div style={S.btnRow}>
+                                    <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
+                                    <Btn disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save"}</Btn>
+                                </div>
+                            </Card>
+                        </div>
+                    );
+                };
+                return <CfAccountModal />;
+            })()}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL: ADD REGISTRAR ACCOUNT
+                ═══════════════════════════════════════════════════════════ */}
+            {modal === "registrar-account" && (() => {
+                const RegistrarAccountModal = () => {
+                    const [form, setForm] = useState({ provider: "internetbs", label: "", api_key: "", secret_key: "" });
+                    const [saving, setSaving] = useState(false);
+                    const [testing, setTesting] = useState(false);
+                    const [testResult, setTestResult] = useState(null);
+
+                    const handleTest = async () => {
+                        if (!form.api_key || !form.secret_key) {
+                            flash("API Key and Secret Key are required", "error");
+                            return;
+                        }
+                        setTesting(true);
+                        setTestResult(null);
+                        try {
+                            // Route through Worker proxy (avoids browser CORS/network issues)
+                            const data = await api.post("/api/automation/registrar/ping", {
+                                provider: form.provider || "internetbs",
+                                apiKey: form.api_key,
+                                secretKey: form.secret_key,
+                            });
+
+                            if (data?.success) {
+                                setTestResult({
+                                    success: true,
+                                    balance: formatBalance(data.balance, data.currency),
+                                    message: data.message,
+                                });
+                            } else {
+                                setTestResult({ success: false, error: data?.error || data?.message || "Connection failed" });
+                            }
+                        } catch (e) {
+                            setTestResult({ success: false, error: e.message });
+                        } finally {
+                            setTesting(false);
+                        }
+                    };
+
+                    const handleSave = async () => {
+                        if (!form.label || !form.api_key || !form.secret_key) {
+                            flash("Label, API Key and Secret Key are required", "error");
+                            return;
+                        }
+                        setSaving(true);
+                        try {
+                            const newAccount = { id: uid(), ...form };
+                            // Save via centralized add() flow (updates state + persists through App handler)
+                            add("registrar-accounts", newAccount);
+                            flash("Registrar account added");
+                            setModal(null);
+                        } catch (e) {
+                            flash(`Failed: ${e.message}`, "error");
+                        } finally {
+                            setSaving(false);
+                        }
+                    };
+
+                    return (
+                        <div style={S.overlay}>
+                            <Card style={{ width: 460, padding: 24, animation: "fadeIn .2s" }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Add Registrar Account</h3>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Provider</label>
+                                    <select value={form.provider} onChange={e => setForm({ ...form, provider: e.target.value })} style={S.select}>
+                                        <option value="internetbs">Internet.bs</option>
+                                    </select>
+                                </div>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Label</label>
+                                    <Inp value={form.label} onChange={v => setForm({ ...form, label: v })} placeholder="Main Registrar" />
+                                </div>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>API Key</label>
+                                    <Inp value={form.api_key} onChange={v => setForm({ ...form, api_key: v })} placeholder="•••" type="password" />
+                                </div>
+                                <div style={S.fieldWrap}>
+                                    <label style={S.label}>Secret Key / Password</label>
+                                    <Inp value={form.secret_key} onChange={v => setForm({ ...form, secret_key: v })} placeholder="•••" type="password" />
+                                </div>
+
+                                {/* Test result */}
+                                {testResult && (
+                                    <div style={{ padding: 10, borderRadius: 6, marginBottom: 12, background: testResult.success ? `${T.success}12` : `${T.danger}12`, fontSize: 12 }}>
+                                        {testResult.success
+                                            ? `✓ Connected! Balance: ${testResult.balance || "N/A"}`
+                                            : `✗ Failed: ${testResult.error}`}
+                                    </div>
+                                )}
+
+                                <div style={S.btnRow}>
+                                    <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
+                                    <Btn variant="ghost" disabled={testing} onClick={handleTest}>
+                                        {testing ? "Testing..." : "Test Connection"}
+                                    </Btn>
+                                    <Btn disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save"}</Btn>
+                                </div>
+                            </Card>
+                        </div>
+                    );
+                };
+                return <RegistrarAccountModal />;
             })()}
         </div>
     );

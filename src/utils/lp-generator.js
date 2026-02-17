@@ -14,8 +14,151 @@ function sanitizeUrl(url) {
   return '#';
 }
 
-function validGtmId(id) {
-  return /^GTM-[A-Z0-9]+$/i.test(id);
+function validConversionId(id) {
+  return id && /^AW-\d+$/i.test(id);
+}
+
+// Real US business addresses (coworking/virtual office locations verifiable on Google Maps)
+const BUSINESS_ADDRESSES = [
+  { street: "1209 Orange St", city: "Wilmington", state: "DE", zip: "19801" },
+  { street: "251 Little Falls Dr", city: "Wilmington", state: "DE", zip: "19808" },
+  { street: "8 The Green, Ste A", city: "Dover", state: "DE", zip: "19901" },
+  { street: "30 N Gould St, Ste R", city: "Sheridan", state: "WY", zip: "82801" },
+  { street: "1603 Capitol Ave, Ste 310", city: "Cheyenne", state: "WY", zip: "82001" },
+  { street: "5830 E 2nd St, Ste 7000", city: "Casper", state: "WY", zip: "82609" },
+  { street: "1007 N Orange St, 4th Fl", city: "Wilmington", state: "DE", zip: "19801" },
+  { street: "16192 Coastal Hwy", city: "Lewes", state: "DE", zip: "19958" },
+  { street: "108 West 13th St", city: "Wilmington", state: "DE", zip: "19801" },
+  { street: "1712 Pioneer Ave, Ste 500", city: "Cheyenne", state: "WY", zip: "82001" },
+  { street: "99 Wall St, Ste 5868", city: "New York", state: "NY", zip: "10005" },
+  { street: "8 The Green, Ste 14095", city: "Dover", state: "DE", zip: "19901" },
+];
+
+function pickAddress(siteId) {
+  // Deterministic selection based on site ID hash
+  let hash = 0;
+  const id = siteId || 'default';
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return BUSINESS_ADDRESSES[Math.abs(hash) % BUSINESS_ADDRESSES.length];
+}
+
+export function generateApplyPage(site) {
+  const c = COLORS.find(x => x.id === site.colorId) || COLORS[0];
+  const f = FONTS.find(x => x.id === site.fontId) || FONTS[0];
+  const brand = esc(site.brand || "LoanBridge");
+  const loanLabel = LOAN_TYPES.find(l => l.id === site.loanType)?.label || "Personal Loans";
+  const hasGads = validConversionId(site.conversionId);
+
+  const fingerprint = `${site.id?.slice(0, 8) || 'xxxx'}-${Date.now().toString(36)}`;
+
+  // Determine form content — priority: aid (auto LeadsGate) > formEmbed (raw paste) > redirectUrl
+  let formContent;
+  if (site.aid?.trim()) {
+    // Auto-generate LeadsGate form with full tracking callbacks (Module 2 spec)
+    formContent = `<script type="text/javascript">
+var clickid=new URLSearchParams(window.location.search).get('clickid')||'';
+var formStartFired=sessionStorage.getItem('_fs')==='1';
+var _lg_form_init_={
+  aid:"${esc(site.aid)}",
+  template:"fresh",
+  click_id:clickid,
+  onFormLoad:function(){
+    if(!formStartFired){formStartFired=true;sessionStorage.setItem('_fs','1');${hasGads ? `gtag('event','conversion',{send_to:'${site.conversionId}/${esc(site.formStartLabel || '')}'});` : ''}}
+    if(window.__pixel)__pixel('fl');
+  },
+  onStepChange:function(step){if(window.__pixel)__pixel('step',{step:step});},
+  onSubmit:function(){
+    ${hasGads ? `gtag('event','conversion',{send_to:'${site.conversionId}/${esc(site.formSubmitLabel || '')}'});` : ''}
+    if(window.__pixel)__pixel('fs',{clickid:clickid});
+  },
+  onSuccess:function(response){
+    if(window.__pixel)__pixel('success',{clickid:clickid,lead_id:response&&response.lead_id||''});
+  }
+};
+</script>
+<script type="text/javascript" async="true" src="https://apikeep.com/form/applicationInit.js"></script>
+<div id="_lg_form_"></div>`;
+  } else if (site.formEmbed?.trim()) {
+    formContent = /<(script|div|iframe|form|link)/i.test(site.formEmbed)
+      ? site.formEmbed
+      : `<script>${site.formEmbed}</script>`;
+  } else if (site.redirectUrl?.trim()) {
+    formContent = `<script>window.location.href=${JSON.stringify(sanitizeUrl(site.redirectUrl))};</script>`;
+  } else {
+    formContent = `<p style="text-align:center;padding:40px;color:#999">No form configured.</p>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Apply - ${brand}</title>
+<meta name="robots" content="noindex,nofollow">
+<!-- v2|${site.id || 'x'}|${fingerprint} -->
+${hasGads ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${site.conversionId}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${site.conversionId}');</script>` : '<!-- No Google Ads conversion ID configured -->'}
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:${f.family},system-ui,sans-serif;background:hsl(${c.bg[0]},${c.bg[1]}%,${c.bg[2]}%);min-height:100vh}</style>
+</head>
+<body>
+<script>(function(){var PX='https://t.'+window.location.hostname+'/e';var sid=crypto.randomUUID();var up=new URLSearchParams(window.location.search);var cid=up.get('clickid')||'';var gid=up.get('gclid')||'';function fire(e,d){var p=new URLSearchParams({e:e,sid:sid,cid:cid,gid:gid,ts:Date.now(),url:window.location.pathname,ref:document.referrer});if(d)for(var k in d)p.set(k,d[k]);navigator.sendBeacon(PX,p);}window.__pixel=fire;fire('pv',{ua:navigator.userAgent,sw:screen.width,sh:screen.height});})();</script>
+${formContent}
+</body>
+</html>`;
+}
+
+export function generateAstrodeckLoanPreview(site) {
+  const c = COLORS.find(x => x.id === site.colorId) || COLORS[0];
+  const f = FONTS.find(x => x.id === site.fontId) || FONTS[0];
+  const brand = esc(site.brand || "LoanBridge");
+  const loanLabel = LOAN_TYPES.find(l => l.id === site.loanType)?.label || "Personal Loans";
+  const h1 = esc(site.h1 || `Get ${loanLabel} up to $${(site.amountMax || 5000).toLocaleString()}`);
+  const sub = esc(site.sub || "Compare lender offers in minutes with no impact to your credit score.");
+  const badge = esc(site.badge || "No Credit Impact");
+  const cta = esc(site.cta || "See My Options");
+  const midAmount = Math.round(((site.amountMin || 100) + (site.amountMax || 5000)) / 2);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${brand} — AstroDeck Loan Preview</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:${f.family},system-ui,sans-serif;background:hsl(${c.bg[0]},${c.bg[1]}%,${c.bg[2]}%);color:hsl(${c.fg[0]},${c.fg[1]}%,${c.fg[2]}%)}
+.hero{padding:56px 20px 26px;background:linear-gradient(180deg,hsl(${c.p[0]},${Math.max(c.p[1]-25,25)}%,96%),hsl(${c.bg[0]},${c.bg[1]}%,${c.bg[2]}%))}
+.container{max-width:980px;margin:0 auto}
+.badge{display:inline-flex;background:hsl(${c.p[0]},${c.p[1]}%,${Math.min(c.p[2]+45,90)}%);color:hsl(${c.p[0]},${c.p[1]}%,${Math.max(c.p[2]-8,20)}%);padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;margin-bottom:14px}
+h1{font-size:clamp(30px,4.2vw,52px);line-height:1.1;letter-spacing:-.02em;max-width:720px}
+.sub{margin-top:12px;font-size:16px;opacity:.85;max-width:680px}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px;padding:0 20px 28px}
+.card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.08);padding:18px}
+.k{font-size:12px;color:#6b7280;margin-bottom:6px}.amt{font-size:34px;font-weight:800;color:hsl(${c.p[0]},${c.p[1]}%,${c.p[2]}%);margin-bottom:10px}
+input[type=range]{width:100%}.zip{display:flex;gap:8px;margin-top:10px}.zip input{flex:1;border:1px solid #d1d5db;border-radius:12px;padding:12px 14px;font-weight:600}
+.btn{border:none;border-radius:12px;padding:12px 16px;background:hsl(${c.s[0]},${c.s[1]}%,${c.s[2]}%);color:#fff;font-weight:800;cursor:pointer;white-space:nowrap}
+.trust{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.t{background:#fff;border:1px solid rgba(0,0,0,.07);padding:10px;border-radius:12px;font-size:12px;text-align:center}
+@media(max-width:860px){.grid{grid-template-columns:1fr}.trust{grid-template-columns:1fr 1fr 1fr}}
+</style>
+</head>
+<body>
+  <section class="hero"><div class="container"><div class="badge">${badge}</div><h1>${h1}</h1><p class="sub">${sub}</p></div></section>
+  <section class="container grid">
+    <div class="card">
+      <div class="k">Loan Type</div><div style="font-weight:700;margin-bottom:8px">${loanLabel}</div>
+      <div class="k">How it works</div>
+      <ol style="padding-left:18px;line-height:1.8;font-size:14px"><li>Choose your amount</li><li>Enter ZIP code</li><li>See your matched options</li></ol>
+      <div class="trust"><div class="t">🔒 SSL Secured</div><div class="t">⏱ 2-Min Form</div><div class="t">✅ Soft Pull</div></div>
+    </div>
+    <div class="card">
+      <div class="k">Estimated amount</div><div class="amt">$${midAmount.toLocaleString()}</div>
+      <input type="range" min="${site.amountMin || 100}" max="${site.amountMax || 5000}" value="${midAmount}" step="100" />
+      <div class="zip"><input type="text" placeholder="ZIP Code" maxlength="5"><button class="btn">${cta}</button></div>
+      <div style="margin-top:10px;font-size:11px;color:#6b7280">Preview: AstroDeck Loan template style</div>
+    </div>
+  </section>
+</body>
+</html>`;
 }
 
 export function generateLP(site) {
@@ -30,150 +173,86 @@ export function generateLP(site) {
   const sub = esc(site.sub || "Get approved in minutes. Funds as fast as next business day.");
   const midAmount = Math.round(((site.amountMin || 100) + (site.amountMax || 5000)) / 2);
 
+  // Fingerprint for tracking only
+  const fingerprint = `${site.id?.slice(0, 8) || 'xxxx'}-${Date.now().toString(36)}`;
+  const cssVarPrefix = 'lp';
+  const hasGads = validConversionId(site.conversionId);
+
+  // Dynamic meta generation — minimal for fast FCP
+  const metaTags = [
+    `<meta charset="UTF-8">`,
+    `<meta name="viewport" content="width=device-width,initial-scale=1.0">`,
+    `<title>${brand} – ${loanLabel} | Fast Approval</title>`,
+    `<meta name="description" content="${sub}">`,
+    `<meta name="theme-color" content="hsl(${c.p[0]},${c.p[1]}%,${c.p[2]}%)">`,
+    `<meta name="robots" content="${site.noindex ? 'noindex,nofollow' : 'index,follow'}">`,
+    `<meta property="og:title" content="${brand} — ${loanLabel}">`,
+    `<meta property="og:description" content="${sub}">`,
+    `<meta property="og:image" content="${site.ogImageDataUrl || `https://${site.domain || 'example.com'}/og.jpg`}">`,
+    `<meta property="og:url" content="https://${site.domain || 'example.com'}/">`,
+    `<meta property="og:type" content="website">`,
+    `<link rel="canonical" href="https://${site.domain || 'example.com'}/">`,
+    site.faviconDataUrl
+      ? `<link rel="icon" href="${site.faviconDataUrl}" type="image/svg+xml">`
+      : `<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='hsl(${c.p[0]},${c.p[1]}%25,${c.p[2]}%25)'/><text x='32' y='44' text-anchor='middle' font-family='system-ui' font-size='36' font-weight='800' fill='white'>${brand[0]}</text></svg>" type="image/svg+xml">`,
+    `<!-- v2|${site.id || 'x'}|${fingerprint} -->`,
+  ].join('\n');
+
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>${brand} – ${loanLabel} | Fast Approval</title>
-<meta name="description" content="${sub}">
-<meta name="theme-color" content="hsl(${c.p[0]},${c.p[1]}%,${c.p[2]}%)">
-<meta name="color-scheme" content="light">
-<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=${f.import}&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=${f.import}&display=swap" rel="stylesheet"></noscript>
-${site.gtmId && validGtmId(site.gtmId) ? `<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${site.gtmId}');</script>` : ""}
-${site.voluumId ? `<script>!function(e,a,t,n,c,o,s){e.V_ID=n,e[n]=e[n]||function(){(e[n].q=e[n].q||[]).push(arguments)},o=a.createElement(t),s=a.getElementsByTagName(t)[0],o.async=1,o.src="https://"+c+"/track.js?id="+n,s.parentNode.insertBefore(o,s)}(window,document,"script","voluum","${site.voluumDomain || 'trk.scratchpethelp.com'}");</script>` : ""}
-<style>
-:root{--p:${c.p[0]} ${c.p[1]}% ${c.p[2]}%;--s:${c.s[0]} ${c.s[1]}% ${c.s[2]}%;--a:${c.a[0]} ${c.a[1]}% ${c.a[2]}%;--bg:${c.bg[0]} ${c.bg[1]}% ${c.bg[2]}%;--fg:${c.fg[0]} ${c.fg[1]}% ${c.fg[2]}%;--radius:${r.v}}
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
-body{font-family:${f.family},system-ui,-apple-system,sans-serif;background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:1rem;line-height:1.5}
-img,svg{display:block;max-width:100%;height:auto}
-a{color:inherit;text-decoration:none}
-a:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid hsl(var(--p));outline-offset:2px;border-radius:4px}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.container{width:100%;max-width:1120px;margin:0 auto;padding:0 20px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:var(--radius);font-weight:700;font-size:1rem;border:none;cursor:pointer;transition:transform .2s,box-shadow .2s;text-decoration:none;min-height:48px;min-width:48px;line-height:1.2}
-.btn-cta{background:linear-gradient(135deg,hsl(var(--a)),hsl(var(--a)/.85));color:#fff;box-shadow:0 4px 16px hsl(var(--a)/.3)}
-.btn-cta:hover,.btn-cta:focus-visible{transform:translateY(-1px);box-shadow:0 6px 24px hsl(var(--a)/.4)}
-.btn-cta:active{transform:translateY(0)}
-.card{background:#fff;border:1px solid hsl(var(--fg)/.08);border-radius:var(--radius);padding:20px}
-header{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid hsl(var(--fg)/.06)}
-header nav{display:flex;align-items:center;justify-content:space-between;height:60px}
-.hero{padding:80px 0 40px;background:linear-gradient(135deg,hsl(var(--p)),hsl(var(--p)/.7));color:#fff;position:relative;overflow:hidden;text-align:center}
-.hero .grid{display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
-.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);font-size:.8125rem;color:rgba(255,255,255,.95);margin-bottom:16px}
-.badge .dot{width:8px;height:8px;border-radius:50%;background:hsl(var(--s));animation:pulse 2s infinite}
-@media(prefers-reduced-motion:reduce){.badge .dot{animation:none}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-h1{font-size:clamp(1.75rem,8vw,3.25rem);font-weight:800;line-height:1.1;margin-bottom:16px;text-wrap:balance}
-h1 .accent{color:hsl(var(--a))}
-.hero p{font-size:1rem;color:rgba(255,255,255,.8);margin:0 auto 24px;max-width:480px;text-wrap:pretty}
-.form-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);padding:24px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-align:left}
-.form-card h2{font-size:1.125rem;font-weight:700;margin-bottom:4px}
-.form-card .sub-text{font-size:.8125rem;color:rgba(255,255,255,.7);margin-bottom:20px}
-.slider-wrap{margin-bottom:20px}
-.slider-label{display:flex;justify-content:space-between;font-size:.8125rem;margin-bottom:8px}
-.slider-amount{font-size:1.625rem;font-weight:800;color:hsl(var(--a))}
-input[type=range]{width:100%;height:8px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,.15);border-radius:4px;outline:none;cursor:pointer}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:hsl(var(--a));cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #fff}
-input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:hsl(var(--a));cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #fff}
-input[type=range]:focus-visible{outline:3px solid hsl(var(--a));outline-offset:2px}
-.checks{display:flex;flex-direction:column;gap:12px;margin-bottom:20px;align-items:center}
-.checks li{display:flex;align-items:center;gap:6px;font-size:.8125rem;color:rgba(255,255,255,.8);list-style:none}
-.check-icon{width:20px;height:20px;border-radius:50%;background:hsl(var(--s));display:flex;align-items:center;justify-content:center;color:#fff;font-size:.625rem;flex-shrink:0}
-.check-icon svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none}
-section{padding:48px 0}
-.section-title{text-align:center;margin-bottom:32px;padding:0 20px}
-.section-title .tag{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;background:hsl(var(--p)/.08);color:hsl(var(--p));margin-bottom:12px}
-.section-title h2{font-size:1.625rem;font-weight:800;text-wrap:balance}
-.section-title p{color:hsl(var(--fg)/.6);margin:8px auto 0;font-size:.875rem}
-.steps,.benefits{display:grid;grid-template-columns:1fr;gap:20px}
-.step,.benefit{text-align:center}
-.step .icon{width:56px;height:56px;margin:0 auto 12px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:hsl(var(--p)/.08)}
-.step .num{width:28px;height:28px;margin:-14px auto 8px;border-radius:50%;background:hsl(var(--p));color:#fff;font-size:.75rem;font-weight:800;display:flex;align-items:center;justify-content:center}
-.benefit .emoji{font-size:2rem;margin-bottom:12px}
-.cta-section{background:linear-gradient(135deg,hsl(var(--p)),hsl(var(--p)/.8));color:#fff;text-align:center;padding:40px 20px;border-radius:var(--radius);margin:0 20px}
-footer{background:hsl(var(--fg)/.03);border-top:1px solid hsl(var(--fg)/.06);padding:40px 0 24px}
-footer a{display:block;padding:4px 0;font-size:.8125rem;color:hsl(var(--fg)/.5);transition:color .15s}
-footer a:hover{color:hsl(var(--p))}
-footer h4{font-size:.875rem;font-weight:700;margin-bottom:8px}
-.footer-grid{display:grid;grid-template-columns:1fr;gap:32px;margin-bottom:32px}
-.compliance{border-top:1px solid hsl(var(--fg)/.06);padding-top:24px;font-size:.6875rem;color:hsl(var(--fg)/.4);line-height:1.7}
-.trust-bar{background:#fff;border-bottom:1px solid hsl(var(--fg)/.06)}
-.trust-bar .inner{display:flex;justify-content:center;gap:32px;flex-wrap:wrap;align-items:center;padding:16px 20px}
-.trust-bar span{font-size:.8125rem;color:hsl(var(--fg)/.5)}
-.trust-bar b{color:hsl(var(--fg))}
-
-@media(min-width:768px){
-  .btn{padding:14px 32px}
-  header nav{height:64px}
-  .hero{padding:120px 0 80px;text-align:left}
-  .hero .grid{grid-template-columns:1fr 1fr;gap:48px}
-  .hero p{margin:0 0 28px}
-  .checks{flex-direction:row;align-items:center;gap:16px}
-  .section-title h2{font-size:2.25rem}
-  .steps{grid-template-columns:repeat(3,1fr);max-width:960px;margin:0 auto}
-  .benefits{grid-template-columns:repeat(2,1fr);max-width:960px;margin:0 auto}
-  .footer-grid{grid-template-columns:2fr 1fr 1fr 1fr}
-  .cta-section{padding:60px;margin:0 auto;max-width:1120px}
-}
-</style>
+${metaTags}
+${hasGads ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${site.conversionId}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${site.conversionId}');</script>` : ''}
+<style>:root{--${cssVarPrefix}-p:${c.p[0]} ${c.p[1]}% ${c.p[2]}%;--${cssVarPrefix}-s:${c.s[0]} ${c.s[1]}% ${c.s[2]}%;--${cssVarPrefix}-a:${c.a[0]} ${c.a[1]}% ${c.a[2]}%;--${cssVarPrefix}-bg:${c.bg[0]} ${c.bg[1]}% ${c.bg[2]}%;--${cssVarPrefix}-fg:${c.fg[0]} ${c.fg[1]}% ${c.fg[2]}%;--${cssVarPrefix}-radius:${r.v}}*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}body{font-family:${f.family},system-ui,-apple-system,sans-serif;background:hsl(var(--${cssVarPrefix}-bg));color:hsl(var(--${cssVarPrefix}-fg));-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:1rem;line-height:1.5}img,svg{display:block;max-width:100%;height:auto}a{color:inherit;text-decoration:none}a:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid hsl(var(--${cssVarPrefix}-p));outline-offset:2px;border-radius:4px}.container{width:100%;max-width:1120px;margin:0 auto;padding:0 20px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:var(--${cssVarPrefix}-radius);font-weight:700;font-size:1rem;border:none;cursor:pointer;transition:transform .2s,box-shadow .2s;text-decoration:none;min-height:48px;min-width:48px;line-height:1.2}.btn-cta{background:linear-gradient(135deg,hsl(var(--${cssVarPrefix}-a)),hsl(var(--${cssVarPrefix}-a)/.85));color:#fff;box-shadow:0 4px 16px hsl(var(--${cssVarPrefix}-a)/.3)}.btn-cta:hover,.btn-cta:focus-visible{transform:translateY(-1px);box-shadow:0 6px 24px hsl(var(--${cssVarPrefix}-a)/.4)}.btn-cta:active{transform:translateY(0)}.card{background:#fff;border:1px solid hsl(var(--${cssVarPrefix}-fg)/.08);border-radius:var(--${cssVarPrefix}-radius);padding:20px}header{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(255,255,255,.97);border-bottom:1px solid hsl(var(--${cssVarPrefix}-fg)/.06);contain:layout style}header nav{display:flex;align-items:center;justify-content:space-between;height:60px}header .btn-cta{display:none}@media(min-width:768px){header .btn-cta{display:inline-flex}}.hero{padding:80px 0 40px;background:linear-gradient(135deg,hsl(var(--${cssVarPrefix}-p)),hsl(var(--${cssVarPrefix}-p)/.7));color:#fff;position:relative;overflow:hidden;text-align:center}.hero .grid{display:grid;grid-template-columns:1fr;gap:32px;align-items:center}.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);font-size:.8125rem;color:rgba(255,255,255,.95);margin-bottom:16px}.badge .dot{width:8px;height:8px;border-radius:50%;background:hsl(var(--${cssVarPrefix}-s));animation:pulse 2s infinite}@media(prefers-reduced-motion:reduce){.badge .dot{animation:none}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}h1{font-size:clamp(1.75rem,8vw,3.25rem);font-weight:800;line-height:1.1;margin-bottom:16px;text-wrap:balance}h1 .accent{color:hsl(var(--${cssVarPrefix}-a))}.hero p{font-size:1rem;color:rgba(255,255,255,.8);margin:0 auto 24px;max-width:480px;text-wrap:pretty}.form-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:var(--${cssVarPrefix}-radius);padding:24px;text-align:left}.form-card h2{font-size:1.125rem;font-weight:700;margin-bottom:4px}.slider-wrap{margin-bottom:20px}.slider-label{display:flex;justify-content:space-between;font-size:.8125rem;margin-bottom:8px}.slider-amount{font-size:1.625rem;font-weight:800;color:hsl(var(--${cssVarPrefix}-a))}input[type=range]{width:100%;height:8px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,.15);border-radius:4px;outline:none;cursor:pointer}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:hsl(var(--${cssVarPrefix}-a));cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #fff}input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:hsl(var(--${cssVarPrefix}-a));cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #fff}input[type=range]:focus-visible{outline:3px solid hsl(var(--${cssVarPrefix}-a));outline-offset:2px}.zip-group{margin-top:4px}.zip-input-wrap{display:flex;border-radius:var(--${cssVarPrefix}-radius);overflow:hidden;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.15)}.zip-input-wrap input{flex:1;padding:16px;border:none;background:#fff;color:#1a1a2e;font-size:1rem;font-weight:600;outline:none;min-width:0}.zip-input-wrap input::placeholder{color:#999;font-weight:400}.zip-cta{border:none;padding:16px 28px;font-size:.9375rem;font-weight:700;white-space:nowrap;border-radius:0;cursor:pointer;background:hsl(var(--${cssVarPrefix}-a));color:#fff;transition:opacity .15s}.zip-cta:hover{opacity:.9}.zip-error{font-size:.75rem;color:#fca5a5;margin-top:6px;min-height:18px}.form-trust-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;font-size:.75rem;color:rgba(255,255,255,.8);font-weight:600}@media(max-width:480px){.zip-input-wrap{flex-direction:column}.zip-cta{border-radius:0;padding:14px}}.checks{display:flex;flex-direction:column;gap:12px;margin-bottom:20px;align-items:center}.checks li{display:flex;align-items:center;gap:6px;font-size:.8125rem;color:rgba(255,255,255,.8);list-style:none}.check-icon{color:hsl(var(--${cssVarPrefix}-s))}</style>
 </head>
 <body>
-${site.gtmId && validGtmId(site.gtmId) ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${site.gtmId}" height="0" width="0" style="display:none;visibility:hidden" title="GTM"></iframe></noscript>` : ""}
-
-<a href="#main-content" class="sr-only" style="position:fixed;top:0;left:0;z-index:100;background:hsl(var(--p));color:#fff;padding:12px 24px;font-size:1rem;font-weight:700;clip:auto;width:auto;height:auto" onfocus="this.style.clip='auto';this.style.width='auto';this.style.height='auto'" onblur="this.className='sr-only'">Skip to main content</a>
 
 <header role="banner"><div class="container"><nav aria-label="Main navigation">
-  <a href="/" aria-label="${brand} homepage" style="display:flex;align-items:center;gap:8px">
-    <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,hsl(var(--p)),hsl(var(--a)));display:flex;align-items:center;justify-content:center" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-    </div>
-    <span style="font-size:1rem;font-weight:700">${brand}</span>
-  </a>
-  <a href="#apply" class="btn btn-cta" style="padding:10px 20px;font-size:.875rem">${cta}</a>
+  <a href="/" aria-label="${brand} homepage" style="font-weight:700">${brand}</a>
+  <a href="apply.html" class="btn btn-cta" style="padding:10px 20px;font-size:.875rem">${cta}</a>
 </nav></div></header>
 
 <main id="main-content">
 
-<section class="hero" id="apply" aria-labelledby="hero-heading"><div class="container"><div class="grid">
+<section class="hero" aria-labelledby="hero-heading"><div class="container"><div class="grid">
   <div>
     <p class="badge" aria-label="Trust indicator"><span class="dot" aria-hidden="true"></span> ${badge}</p>
     <h1 id="hero-heading">${h1.replace(/(\$[\d,]+)/g, '<span class="accent">$1</span>')}</h1>
     <p>${sub}</p>
     <ul class="checks" aria-label="Key benefits" role="list">
-      <li><span class="check-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> All Credit Welcome</li>
-      <li><span class="check-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 2-Min Application</li>
-      <li><span class="check-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> No Hidden Fees</li>
+      <li><span class="check-icon" aria-hidden="true">✓</span> All Credit Welcome</li>
+      <li><span class="check-icon" aria-hidden="true">✓</span> 2-Min Application</li>
+      <li><span class="check-icon" aria-hidden="true">✓</span> No Hidden Fees</li>
     </ul>
   </div>
   <div class="form-card" role="form" aria-labelledby="form-heading">
     <h2 id="form-heading">How much do you need?</h2>
-    <p class="sub-text">Check your rate in 2 minutes — won't affect credit score</p>
     <div class="slider-wrap">
       <div class="slider-label"><label for="loan-amount">Amount</label></div>
       <output id="amount-display" class="slider-amount" for="loan-amount" aria-live="polite">$${midAmount.toLocaleString()}</output>
-      <input type="range" id="loan-amount" name="amount" min="${site.amountMin}" max="${site.amountMax}" value="${midAmount}" step="100"
+      <input type="range" id="loan-amount" name="amount" min="${site.amountMin || 100}" max="${site.amountMax || 5000}" value="${midAmount}" step="100"
         aria-label="Loan amount from $${(site.amountMin || 100).toLocaleString()} to $${(site.amountMax || 5000).toLocaleString()}"
-        aria-valuemin="${site.amountMin}" aria-valuemax="${site.amountMax}" aria-valuenow="${midAmount}"
+        aria-valuemin="${site.amountMin || 100}" aria-valuemax="${site.amountMax || 5000}" aria-valuenow="${midAmount}"
         aria-valuetext="$${midAmount.toLocaleString()}">
     </div>
-    <a href="${sanitizeUrl(site.redirectUrl)}" class="btn btn-cta" style="width:100%;font-size:1.0625rem" role="button"
-      aria-label="${cta} — check your loan rate">${cta}</a>
-    <p style="text-align:center;margin-top:12px;font-size:.6875rem;color:rgba(255,255,255,.5)">
-      <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle;margin-right:3px" aria-hidden="true"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-      256-bit SSL Encryption &bull; Won't affect credit score
-    </p>
+    <div class="zip-group">
+      <div class="zip-input-wrap">
+        <input type="text" id="zip-input" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="Zip Code" autocomplete="postal-code" aria-label="Enter your 5-digit zip code">
+        <button type="button" id="zip-btn" class="btn btn-cta zip-cta" aria-label="${cta}">
+          ${cta} →
+        </button>
+      </div>
+      <div id="zip-error" class="zip-error" role="alert" aria-live="polite"></div>
+    </div>
+    <div class="form-trust-note">🔒 256-bit SSL • Won't affect credit score</div>
   </div>
 </div></div></section>
 
-<section class="trust-bar" aria-label="Trust indicators"><div class="container"><div class="inner">
-  <span><b>15,000+</b> loans funded</span>
-  <span aria-label="4.8 out of 5 star rating"><svg width="14" height="14" viewBox="0 0 20 20" fill="hsl(45,93%,47%)" style="vertical-align:middle" aria-hidden="true"><path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.33L10 13.27l-4.77 2.51.91-5.33L2.27 6.68l5.34-.78z"/></svg> <b>4.8/5</b></span>
-  <span><svg width="14" height="14" viewBox="0 0 20 20" fill="hsl(var(--p))" style="vertical-align:middle" aria-hidden="true"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg> <b>256-bit</b> encryption</span>
+<section class="trust-badges" aria-label="Trust badges"><div class="container"><div class="wrap">
+  <div class="trust-badge"><strong>🔒 SSL Secured</strong></div>
+  <div class="trust-badge"><strong>💰 No Upfront Fees</strong></div>
+  <div class="trust-badge"><strong>✅ Soft Credit Pull</strong></div>
+  <div class="trust-badge"><strong>🛡️ Licensed Partners</strong></div>
 </div></div></section>
 
 <section id="how-it-works" aria-labelledby="steps-heading"><div class="container">
@@ -183,9 +262,9 @@ ${site.gtmId && validGtmId(site.gtmId) ? `<noscript><iframe src="https://www.goo
     <p>No paperwork. No waiting. Everything happens online.</p>
   </div>
   <ol class="steps" role="list" style="list-style:none">
-    <li class="step card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--p))" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></div><div class="num" aria-hidden="true">1</div><h3>Apply Online</h3><p>Fill out our simple 2-minute form. No impact on your credit score.</p></li>
-    <li class="step card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--p))" stroke-width="2"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></div><div class="num" aria-hidden="true">2</div><h3>Get Matched</h3><p>Our network of lenders competes to offer you the best rate.</p></li>
-    <li class="step card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--p))" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="num" aria-hidden="true">3</div><h3>Get Funded</h3><p>Accept your offer and receive funds as fast as next business day.</p></li>
+    <li class="step card"><div class="icon" aria-hidden="true">📝</div><div class="num" aria-hidden="true">1</div><h3>Apply Online</h3><p>Fill out our simple 2-minute form. No impact on your credit score.</p></li>
+    <li class="step card"><div class="icon" aria-hidden="true">🔄</div><div class="num" aria-hidden="true">2</div><h3>Get Matched</h3><p>Our network of lenders competes to offer you the best rate.</p></li>
+    <li class="step card"><div class="icon" aria-hidden="true">💵</div><div class="num" aria-hidden="true">3</div><h3>Get Funded</h3><p>Accept your offer and receive funds as fast as next business day.</p></li>
   </ol>
 </div></section>
 
@@ -196,12 +275,10 @@ ${site.gtmId && validGtmId(site.gtmId) ? `<noscript><iframe src="https://www.goo
     <p>We make borrowing simple, transparent, and stress-free.</p>
   </div>
   <ul class="benefits" role="list" style="list-style:none">
-    ${[
-      ["M13 10V3L4 14h7v7l9-11h-7z", "Fast Approval", "Get a decision in minutes, not days. Our streamlined process respects your time."],
-      ["M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", "Bank-Level Security", "Your data is protected with 256-bit encryption. We never sell your information."],
-      ["M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", "Transparent Terms", "No hidden fees, no surprises. See your exact rate before you commit."],
-      ["M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z", "All Credit Welcome", `Whether your credit is excellent or needs work, ${brand} has options for you.`],
-    ].map(([path, t, d]) => `<li class="card benefit"><div aria-hidden="true" style="margin-bottom:12px"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--p))" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg></div><h3>${t}</h3><p>${d}</p></li>`).join("")}
+    <li class="card benefit"><div style="font-size:2rem;margin-bottom:12px" aria-hidden="true">⚡</div><h3>Fast Approval</h3><p>Get a decision in minutes, not days.</p></li>
+    <li class="card benefit"><div style="font-size:2rem;margin-bottom:12px" aria-hidden="true">🔒</div><h3>Bank-Level Security</h3><p>256-bit encryption. We never sell your info.</p></li>
+    <li class="card benefit"><div style="font-size:2rem;margin-bottom:12px" aria-hidden="true">✅</div><h3>Transparent Terms</h3><p>No hidden fees. See your rate before you commit.</p></li>
+    <li class="card benefit"><div style="font-size:2rem;margin-bottom:12px" aria-hidden="true">👥</div><h3>All Credit Welcome</h3><p>Options for excellent or rebuilding credit.</p></li>
   </ul>
 </div></section>
 
@@ -209,7 +286,7 @@ ${site.gtmId && validGtmId(site.gtmId) ? `<noscript><iframe src="https://www.goo
   <div class="cta-section">
     <h2 id="cta-heading">Ready to Get Started?</h2>
     <p>Join thousands who've found a smarter way to borrow.</p>
-    <a href="#apply" class="btn btn-cta" style="font-size:1.125rem;padding:16px 40px">${cta}</a>
+    <a href="apply.html" class="btn btn-cta" style="font-size:1.125rem;padding:16px 40px">${cta}</a>
   </div>
 </div></section>
 
@@ -218,48 +295,29 @@ ${site.gtmId && validGtmId(site.gtmId) ? `<noscript><iframe src="https://www.goo
 <footer role="contentinfo"><div class="container">
   <div class="footer-grid">
     <div>
-      <a href="/" style="display:flex;align-items:center;gap:8px;margin-bottom:12px" aria-label="${brand} homepage">
-        <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,hsl(var(--p)),hsl(var(--a)));display:flex;align-items:center;justify-content:center" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        <span style="font-weight:700">${brand}</span>
-      </a>
-      <p style="font-size:.8125rem;color:hsl(var(--fg)/.5);line-height:1.6">Connecting you with trusted lenders for ${loanLabel.toLowerCase()} up to $${(site.amountMax || 5000).toLocaleString()}.</p>
+      <a href="/" style="display:flex;align-items:center;gap:8px;margin-bottom:12px" aria-label="${brand} homepage"><span style="font-weight:700">${brand}</span></a>
+      <p style="font-size:.8125rem;color:hsl(var(--${cssVarPrefix}-fg)/.5);line-height:1.6">Trusted lenders for ${loanLabel.toLowerCase()} up to $${(site.amountMax || 5000).toLocaleString()}.</p>
+      ${(() => { const addr = site.address || pickAddress(site.id); return `<address style="font-style:normal;font-size:.75rem;color:hsl(var(--${cssVarPrefix}-fg)/.4);margin-top:10px">${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}</address>`; })()}
     </div>
-    <nav aria-label="Company links"><h4>Company</h4><a href="#how-it-works">How It Works</a><a href="#apply">Apply Now</a></nav>
-    <nav aria-label="Legal links"><h4>Legal</h4><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/disclosures">Disclosures</a></nav>
+    <nav aria-label="Company links"><h4>Company</h4><a href="#how-it-works">How It Works</a><a href="apply.html">Apply Now</a></nav>
+    <nav aria-label="Legal links"><h4>Legal</h4><a href="#" data-modal="privacy">Privacy Policy</a><a href="#" data-modal="terms">Terms of Service</a><a href="#" data-modal="disclosures">Disclosures</a><a href="#" data-modal="nmls">NMLS Consumer Access</a></nav>
     <div><h4>Support</h4><a href="mailto:${esc(site.email || "support@" + (site.domain || "example.com"))}">${esc(site.email || "Contact Us")}</a></div>
   </div>
-  <div class="compliance" role="note" aria-label="Legal disclosures">
-    <p><strong>Representative Example:</strong> A $1,000 loan repaid over 12 monthly installments at ${site.aprMin || 5.99}% APR would result in 12 payments of $90.26. Total payable: $1,083.12.</p>
-    <p><strong>APR Disclosure:</strong> Annual Percentage Rate (APR) ranges from ${site.aprMin || 5.99}% to ${site.aprMax || 35.99}%. APR depends on credit score, loan amount, and term.</p>
-    <p>${brand} is NOT a lender and does not make loan or credit decisions. ${brand} connects interested persons with a lender from its network of approved lenders.</p>
-    <p style="margin-top:16px"><small>&copy; ${new Date().getFullYear()} ${brand}. All rights reserved.</small></p>
+  <div class="compliance">
+    <p><strong>APR:</strong> ${site.aprMin || 5.99}%–${site.aprMax || 35.99}%. Example: $1,000 over 12 mo at ${site.aprMin || 5.99}% = $90.26/mo ($1,083.12 total). ${brand} is NOT a lender. &copy; ${new Date().getFullYear()} ${brand}.</p>
   </div>
 </div></footer>
 
-<script>
-(function(){
-  // Slider a11y + tracking
-  var s=document.getElementById('loan-amount'),o=document.getElementById('amount-display');
-  if(s&&o){s.addEventListener('input',function(){var v='$'+Number(this.value).toLocaleString();o.textContent=v;this.setAttribute('aria-valuenow',this.value);this.setAttribute('aria-valuetext',v);if(window.dataLayer)dataLayer.push({event:'slider_interact'})});}
+<!-- Reusable Legal Modal -->
+<div class="modal-overlay" id="legal-modal" role="dialog" aria-labelledby="legal-modal-title" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h3 id="legal-modal-title">Legal</h3><button class="modal-close" aria-label="Close">&times;</button></div>
+    <div class="modal-body" id="legal-modal-body"></div>
+  </div>
+</div>
 
-  // CTA tracking
-  var cta=document.querySelector('.form-card .btn-cta');
-  if(cta){cta.addEventListener('click',function(){if(window.dataLayer){dataLayer.push({event:'cta_click'});dataLayer.push({event:'generate_lead_start'});}if(window.voluum)voluum('track','click');});}
-
-  // GTM data + micro-conversions
-  if(window.dataLayer){
-    dataLayer.push({'brand_name':'${brand}','loan_type':'${loanLabel}','amount_min':${site.amountMin},'amount_max':${site.amountMax}});
-    dataLayer.push({event:'page_view'});
-    var st=[25,50,75,90],tracked=[];
-    window.addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-window.innerHeight;if(h<=0)return;var p=Math.round(window.scrollY/h*100);st.forEach(function(t){if(p>=t&&tracked.indexOf(t)===-1){dataLayer.push({event:'scroll_'+t});tracked.push(t);}});},{passive:true});
-    [15,30,60,120].forEach(function(t){setTimeout(function(){dataLayer.push({event:'time_on_page_'+t+'s'});},t*1000);});
-    if(s){s.addEventListener('focus',function(){dataLayer.push({event:'form_start'});},{once:true});}
-  }
-})();
-</script>
-</body></html>`;
+<style>section{padding:48px 0;contain:layout style}.section-title{text-align:center;margin-bottom:32px;padding:0 20px}.section-title .tag{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;background:hsl(var(--${cssVarPrefix}-p)/.08);color:hsl(var(--${cssVarPrefix}-p));margin-bottom:12px}.section-title h2{font-size:1.625rem;font-weight:800;text-wrap:balance}.section-title p{color:hsl(var(--${cssVarPrefix}-fg)/.6);margin:8px auto 0;font-size:.875rem}.steps,.benefits{display:grid;grid-template-columns:1fr;gap:20px}.step,.benefit{text-align:center}.step .icon{width:56px;height:56px;margin:0 auto 12px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:hsl(var(--${cssVarPrefix}-p)/.08)}.step .num{width:28px;height:28px;margin:-14px auto 8px;border-radius:50%;background:hsl(var(--${cssVarPrefix}-p));color:#fff;font-size:.75rem;font-weight:800;display:flex;align-items:center;justify-content:center}.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:20px}.modal-overlay.active{display:flex}.modal{background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:85vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #eee;flex-shrink:0}.modal-header h3{font-size:1.125rem;font-weight:700;color:#1a1a2e}.modal-close{width:32px;height:32px;border-radius:8px;border:none;background:#f5f5f5;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#666;transition:all .15s}.modal-close:hover{background:#e5e5e5;color:#333}.modal-body{padding:24px;overflow-y:auto;font-size:.8125rem;color:#444;line-height:1.8}.modal-body p{margin-bottom:12px}.cta-section{background:linear-gradient(135deg,hsl(var(--${cssVarPrefix}-p)),hsl(var(--${cssVarPrefix}-p)/.8));color:#fff;text-align:center;padding:40px 20px;border-radius:var(--${cssVarPrefix}-radius);margin:0 20px}footer{background:hsl(var(--${cssVarPrefix}-fg)/.03);border-top:1px solid hsl(var(--${cssVarPrefix}-fg)/.06);padding:40px 0 24px}footer a{display:block;padding:4px 0;font-size:.8125rem;color:hsl(var(--${cssVarPrefix}-fg)/.5);transition:color .15s}footer a:hover{color:hsl(var(--${cssVarPrefix}-p))}footer h4{font-size:.875rem;font-weight:700;margin-bottom:8px}.footer-grid{display:grid;grid-template-columns:1fr;gap:32px;margin-bottom:32px}.compliance{border-top:1px solid hsl(var(--${cssVarPrefix}-fg)/.06);padding-top:24px;font-size:.6875rem;color:hsl(var(--${cssVarPrefix}-fg)/.4);line-height:1.7}.trust-badges{background:#f8fafb;border-bottom:1px solid hsl(var(--${cssVarPrefix}-fg)/.06);padding:20px 0}.trust-badges .wrap{display:grid;grid-template-columns:1fr;gap:10px}.trust-badge{display:flex;align-items:center;background:#fff;border:1px solid hsl(var(--${cssVarPrefix}-fg)/.1);border-radius:999px;padding:10px 14px;min-height:44px}.trust-badge strong{font-size:.8125rem;color:hsl(var(--${cssVarPrefix}-fg))}@media(min-width:768px){.btn{padding:14px 32px}header nav{height:64px}.hero{padding:120px 0 80px;text-align:left}.hero .grid{grid-template-columns:1fr 1fr;gap:48px}.hero p{margin:0 0 28px}.checks{flex-direction:row;align-items:center;gap:16px}.section-title h2{font-size:2.25rem}.steps{grid-template-columns:repeat(3,1fr);max-width:960px;margin:0 auto}.benefits{grid-template-columns:repeat(2,1fr);max-width:960px;margin:0 auto}.trust-badges .wrap{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.trust-badge{border-radius:14px}.footer-grid{grid-template-columns:2fr 1fr 1fr 1fr}.cta-section{padding:60px;margin:0 auto;max-width:1120px}}</style>
+<script>(function(){var PX='https://t.'+window.location.hostname+'/e';var sid=crypto.randomUUID();var up=new URLSearchParams(window.location.search);var cid=up.get('clickid')||'';var gid=up.get('gclid')||'';function px(e,d){var p=new URLSearchParams({e:e,sid:sid,cid:cid,gid:gid,ts:Date.now(),url:window.location.pathname,ref:document.referrer});if(d)for(var k in d)p.set(k,d[k]);navigator.sendBeacon(PX,p);}window.__pixel=px;px('pv',{ua:navigator.userAgent,sw:screen.width,sh:screen.height});var sf={};window.addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-window.innerHeight;if(h<=0)return;var pct=Math.round(window.scrollY/h*100);[25,50,75,100].forEach(function(t){if(pct>=t&&!sf[t]){sf[t]=true;px('s'+t);}});},{passive:true});setTimeout(function(){px('t30');},30000);setTimeout(function(){px('t60');},60000);var fsFired=sessionStorage.getItem('_fs')==='1';function fsOnce(){if(fsFired)return;fsFired=true;sessionStorage.setItem('_fs','1');${hasGads ? `gtag('event','conversion',{send_to:'${site.conversionId}/${esc(site.formStartLabel||"")}'})` : ''};px('form_start_interact');}var s=document.getElementById('loan-amount'),o=document.getElementById('amount-display');if(s&&o){s.addEventListener('input',function(){var v='$'+Number(this.value).toLocaleString();o.textContent=v;this.setAttribute('aria-valuenow',this.value);this.setAttribute('aria-valuetext',v);fsOnce();});s.addEventListener('change',function(){px('amt',{amount:this.value});});}var zipIn=document.getElementById('zip-input'),zipBtn=document.getElementById('zip-btn'),zipErr=document.getElementById('zip-error');if(zipIn&&zipBtn){zipIn.addEventListener('focus',fsOnce,{once:true});zipIn.addEventListener('input',function(){this.value=this.value.replace(/[^0-9]/g,'').slice(0,5);if(zipErr)zipErr.textContent='';if(this.value.length===5)px('ze',{zip:this.value});});zipIn.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();zipBtn.click();}});zipBtn.addEventListener('click',function(e){e.preventDefault();var val=zipIn.value.replace(/[^0-9]/g,'');if(val.length!==5){if(zipErr)zipErr.textContent='Please enter a 5-digit zip code';zipIn.focus();return;}if(zipErr)zipErr.textContent='';window.location.href='apply.html?zip='+val+'&amount='+(s?s.value:'')+(cid?'&clickid='+cid:'')+(gid?'&gclid='+gid:'');});}var legalModal=document.getElementById('legal-modal'),legalModalTitle=document.getElementById('legal-modal-title'),legalModalBody=document.getElementById('legal-modal-body'),legalContent={privacy:{title:'Privacy Policy',body:'<p class="updated">Last Updated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><p>We collect application details, contact data, and technical usage data to match you with lenders, prevent fraud, and operate this service.</p><p>We may share information with lender partners and service providers for loan-matching and compliance. <strong>We do not sell personal data for unrelated marketing.</strong></p><p>Privacy requests: <a href="mailto:${esc(site.email || 'privacy@' + (site.domain || 'example.com'))}" style="color:hsl(var(--${cssVarPrefix}-p))">${esc(site.email || 'privacy@' + (site.domain || 'example.com'))}</a></p>'},terms:{title:'Terms of Service',body:'<p class="updated">Last Updated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><p>${brand} is a lead-generation service and <strong>not a lender</strong>. Loan decisions and terms are made only by participating lenders.</p><p>Submitting an inquiry does not guarantee approval. Rate checks on this page use a soft inquiry; a lender may run a hard inquiry if you proceed.</p><p>Questions: <a href="mailto:${esc(site.email || 'legal@' + (site.domain || 'example.com'))}" style="color:hsl(var(--${cssVarPrefix}-p))">${esc(site.email || 'legal@' + (site.domain || 'example.com'))}</a></p>'},disclosures:{title:'Important Disclosures',body:'<p><strong>APR Range:</strong> ${site.aprMin || 5.99}% to ${site.aprMax || 35.99}%. Rates vary by credit profile, amount, term, and lender policy.</p><p><strong>Loan Range:</strong> $${(site.amountMin || 100).toLocaleString()} to $${(site.amountMax || 5000).toLocaleString()} with terms typically from 3 to 60 months.</p><p>${brand} is not a lender. Late or missed payments may result in fees, collections, and credit impact under your lender agreement.</p>'},nmls:{title:'NMLS Consumer Access',body:'<p>Verify licensing information via NMLS Consumer Access:</p><p><a href="https://www.nmlsconsumeraccess.org" target="_blank" rel="noopener" style="color:hsl(var(--${cssVarPrefix}-p));font-weight:600">www.nmlsconsumeraccess.org</a></p><p><strong>Company:</strong> ${brand}<br><strong>NMLS ID:</strong> ${site.nmls || 'Pending Registration'}</p><p>Support: <a href="mailto:${esc(site.email || 'complaints@' + (site.domain || 'example.com'))}" style="color:hsl(var(--${cssVarPrefix}-p))">${esc(site.email || 'complaints@' + (site.domain || 'example.com'))}</a></p>'}};document.querySelectorAll('[data-modal]').forEach(function(link){link.addEventListener('click',function(e){e.preventDefault();var key=this.getAttribute('data-modal'),content=legalContent[key];if(!content||!legalModal||!legalModalTitle||!legalModalBody)return;legalModalTitle.textContent=content.title;legalModalBody.innerHTML=content.body;legalModal.classList.add('active');document.body.style.overflow='hidden';});});document.querySelectorAll('.modal-close').forEach(function(btn){btn.addEventListener('click',function(){this.closest('.modal-overlay').classList.remove('active');document.body.style.overflow='';});});document.querySelectorAll('.modal-overlay').forEach(function(overlay){overlay.addEventListener('click',function(e){if(e.target===this){this.classList.remove('active');document.body.style.overflow='';}});});document.addEventListener('keydown',function(e){if(e.key==='Escape'){var open=document.querySelector('.modal-overlay.active');if(open){open.classList.remove('active');document.body.style.overflow='';}}});})();</script></body></html>`
 }
 
 // Minimal ZIP creator (single HTML file)
@@ -428,7 +486,7 @@ export function makeThemeJson(site) {
   const f = FONTS.find(x => x.id === site.fontId) || FONTS[0];
   const r = RADIUS.find(x => x.id === site.radius) || RADIUS[2];
   return {
-    variantId: site.id, domain: site.domain, gtmId: site.gtmId || "",
+    variantId: site.id, domain: site.domain,
     colors: {
       primary: `${c.p[0]} ${c.p[1]}% ${c.p[2]}% `, secondary: `${c.s[0]} ${c.s[1]}% ${c.s[2]}% `,
       accent: `${c.a[0]} ${c.a[1]}% ${c.a[2]}% `, background: `${c.bg[0]} ${c.bg[1]}% ${c.bg[2]}% `,
@@ -449,6 +507,6 @@ export function makeThemeJson(site) {
       sub: site.sub || "", complianceEmail: site.email || "",
     },
     loanProduct: { type: site.loanType, amountMin: site.amountMin, amountMax: site.amountMax, aprMin: site.aprMin, aprMax: site.aprMax },
-    tracking: { gtmId: site.gtmId, network: site.network, redirectUrl: site.redirectUrl, conversionId: site.conversionId, conversionLabel: site.conversionLabel },
+    tracking: { conversionId: site.conversionId, formStartLabel: site.formStartLabel, formSubmitLabel: site.formSubmitLabel, aid: site.aid, network: site.network, redirectUrl: site.redirectUrl, voluumId: site.voluumId, voluumDomain: site.voluumDomain },
   };
 }
