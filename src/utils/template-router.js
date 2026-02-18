@@ -1,10 +1,12 @@
 import { generateLP, generateAstrodeckLoanPreview, generateApplyPage } from "./lp-generator";
-import { generateAstroProject } from "./astro-generator";
+import { generateAstroProject, generatePDLLoansV1 } from "./astro-generator";
 
 export const DEFAULT_TEMPLATE_ID = "classic";
 
 function resolveTemplateId(site) {
-  return site?.templateId || DEFAULT_TEMPLATE_ID;
+  const tid = site?.templateId || DEFAULT_TEMPLATE_ID;
+  console.log("[template-router] Resolving templateId:", site?.templateId, "-> using:", tid);
+  return tid;
 }
 
 export function generateHtmlByTemplate(site) {
@@ -18,10 +20,16 @@ export function generateHtmlByTemplate(site) {
 }
 
 export function generateAstroProjectByTemplate(site) {
-  switch (resolveTemplateId(site)) {
+  const tid = resolveTemplateId(site);
+  console.log("[template-router] generateAstroProjectByTemplate called with templateId:", tid);
+  switch (tid) {
+    case "pdl-loansv1":
+      console.log("[template-router] Using generatePDLLoansV1");
+      return generatePDLLoansV1(site);
     case "astrodeck-loan":
     case "classic":
     default:
+      console.log("[template-router] Using generateAstroProject (classic)");
       return generateAstroProject(site);
   }
 }

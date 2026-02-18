@@ -1,12 +1,29 @@
 /**
  * Git Push deployer
  * Queues a deploy by committing generated artifacts into a GitHub repository.
+ * For Astro projects, sends all project files. For HTML templates, sends index.html.
  */
 
 const WORKER_BASE = "https://lp-factory-api.songsawat-w.workers.dev";
 
 export async function deploy(content, site, settings) {
-  const files = normalizeFiles(content);
+  // If content is an object with multiple files (Astro project), use it directly
+  // If content is a string (HTML), wrap it as index.html
+  let files;
+
+  if (typeof content === "string") {
+    files = { "index.html": content };
+  } else if (content && typeof content === "object") {
+    // Already a files map (from Astro project generator)
+    files = content;
+    // Ensure index.html exists if it's a multi-file deploy
+    if (!files["index.html"]) {
+      throw new Error("Deploy requires index.html in generated content");
+    }
+  } else {
+    throw new Error("Invalid deploy content for git-push target");
+  }
+
   const rawGithubToken = String(settings.githubToken || "").trim();
   const githubToken = isMaskedSecret(rawGithubToken) ? "" : rawGithubToken;
   const payload = {
@@ -54,6 +71,7 @@ export async function deploy(content, site, settings) {
   };
 }
 
+// Legacy function for HTML-only content - kept for compatibility
 function normalizeFiles(content) {
   if (typeof content === "string") {
     return { "index.html": content };

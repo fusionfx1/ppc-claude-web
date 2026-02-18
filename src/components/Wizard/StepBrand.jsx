@@ -19,7 +19,10 @@ export function StepBrand({ c, u }) {
                     {SITE_TEMPLATES.map(tpl => {
                         const active = (c.templateId || DEFAULT_TEMPLATE_ID) === tpl.id;
                         return (
-                            <button key={tpl.id} onClick={() => u("templateId", tpl.id)} style={{
+                            <button key={tpl.id} onClick={() => {
+                                console.log("[StepBrand] Setting templateId to:", tpl.id);
+                                u("templateId", tpl.id);
+                            }} style={{
                                 padding: "10px 12px",
                                 background: active ? T.primaryGlow : T.input,
                                 border: `2px solid ${active ? T.primary : T.border}`,

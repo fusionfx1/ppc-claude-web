@@ -79,6 +79,12 @@ export const SITE_TEMPLATES = [
         badge: "New",
         description: "New AstroDeck-style loan template architecture",
     },
+    {
+        id: "pdl-loansv1",
+        name: "PDL Loans V1",
+        badge: "Popular",
+        description: "Payday/PDL loan template with hero form, trust badges, calculator, FAQ - Zero-JS architecture",
+    },
 ];
 
 // Default configuration for new landing page wizard

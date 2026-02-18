@@ -72,7 +72,13 @@ export default function App() {
 
             // Sites from Neon
             if (neonSites && neonSites.length > 0) {
-              setSites(neonSites);
+              // Migrate: add templateId to old sites that don't have it
+              const migratedSites = neonSites.map(s => ({
+                ...s,
+                templateId: s.templateId || "classic"  // Default to classic for old sites
+              }));
+              console.log("[App] Migrated sites:", migratedSites.map(s => ({ id: s.id, brand: s.brand, templateId: s.templateId })));
+              setSites(migratedSites);
             } else {
               // First time: sync localStorage sites to Neon
               const localSites = LS.get("sites") || [];
@@ -153,6 +159,7 @@ export default function App() {
   };
 
   const addSite = (site) => {
+    console.log("[App] addSite called with:", { id: site.id, brand: site.brand, templateId: site.templateId, _editMode: site._editMode });
     if (site._editMode) {
       // Update existing site (redeploy)
       const { _editMode, ...siteData } = site;
@@ -164,7 +171,10 @@ export default function App() {
       notify(`${siteData.brand} updated!`);
     } else {
       // New site
-      setSites(p => [site, ...p]);
+      setSites(p => {
+        console.log("[App] setSites - adding new site with templateId:", site.templateId);
+        return [site, ...p];
+      });
       setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
 
       if (neonOk) db.saveSite(site).catch(() => {});

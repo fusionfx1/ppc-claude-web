@@ -101,7 +101,13 @@ export async function loadSites() {
   if (!sql) return null;
   try {
     const rows = await sql`SELECT id, data, created_at FROM sites ORDER BY created_at DESC`;
-    return rows.map(r => ({ ...r.data, id: r.id, _createdAt: r.created_at }));
+    const sites = rows.map(r => {
+      const site = { ...r.data, id: r.id, _createdAt: r.created_at };
+      console.log("[neon] loadSites - site:", { id: site.id, brand: site.brand, templateId: site.templateId });
+      return site;
+    });
+    console.log("[neon] loadSites - total sites:", sites.length);
+    return sites;
   } catch (e) {
     console.warn("[neon] loadSites error:", e.message);
     return null;
@@ -113,6 +119,8 @@ export async function saveSite(site) {
   if (!sql) return false;
   try {
     const { id, ...data } = site;
+    console.log("[neon] saveSite - saving site with templateId:", data.templateId);
+    console.log("[neon] saveSite - data keys:", Object.keys(data));
     await sql`
       INSERT INTO sites (id, data, created_at, updated_at)
       VALUES (${id}, ${JSON.stringify(data)}, now(), now())

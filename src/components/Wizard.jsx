@@ -150,6 +150,8 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
     const handleBuild = async () => {
         setBuilding(true);
         let finalConfig = { ...config };
+        console.log("[Wizard] handleBuild - finalConfig.templateId:", finalConfig.templateId);
+        console.log("[Wizard] handleBuild - finalConfig keys:", Object.keys(finalConfig));
 
         // Only generate AI copy if fields are empty
         const needsAiCopy = !finalConfig.h1 || !finalConfig.badge || !finalConfig.cta || !finalConfig.sub;

@@ -60,14 +60,24 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
     const handleDeploy = async (site, target) => {
         setOpenDeploy(null);
         setDeploying({ siteId: site.id, target });
+        console.log("[Sites] handleDeploy called with site:", { id: site.id, brand: site.brand, templateId: site.templateId });
         try {
-            const html = generateHtmlByTemplate(site);
-            const applyHtml = generateApplyPageByTemplate(site);
-            
-            // Attach apply.html as extra file for multi-file deploy
-            const siteWithFiles = { ...site, _extraFiles: { "/apply.html": applyHtml } };
-            
-            const result = await deployTo(target, html, siteWithFiles, settings);
+            // For Git Push Pipeline, use Astro project files
+            // For other targets, use HTML
+            let content;
+            if (target === "git-push") {
+                console.log("[Sites] Using git-push target, calling generateAstroProjectByTemplate");
+                const astroFiles = generateAstroProjectByTemplate(site);
+                const applyHtml = generateApplyPageByTemplate(site);
+                // Merge apply.html into astro files
+                content = { ...astroFiles, "apply.html": applyHtml };
+            } else {
+                // Single-file HTML deploy for other targets
+                console.log("[Sites] Using non-git-push target, calling generateHtmlByTemplate");
+                content = generateHtmlByTemplate(site);
+            }
+
+            const result = await deployTo(target, content, site, settings);
             if (result.success) {
                 setDeployUrls(p => ({
                     ...p,
