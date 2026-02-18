@@ -1,89 +1,1310 @@
-<testsuites id="" name="" tests="17" failures="1" skipped="0" errors="0" time="29.233236">
-<testsuite name="ops-center\ops-center-save.spec.ts" timestamp="2026-02-16T16:36:19.560Z" hostname="chromium" tests="17" failures="1" skipped="0" time="108.973" errors="0">
-<testcase name="Ops Center - Save Functionality › should display Ops Center with all tabs" classname="ops-center\ops-center-save.spec.ts" time="5.115">
+<testsuites id="" name="" tests="51" failures="22" skipped="0" errors="0" time="26.480237">
+<testsuite name="ops-center\ops-center-save.spec.ts" timestamp="2026-02-18T00:23:32.035Z" hostname="chromium" tests="17" failures="0" skipped="0" time="145.848" errors="0">
+<testcase name="Ops Center - Save Functionality › should display Ops Center with all tabs" classname="ops-center\ops-center-save.spec.ts" time="10.24">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should switch between tabs successfully" classname="ops-center\ops-center-save.spec.ts" time="6.611">
+<testcase name="Ops Center - Save Functionality › should switch between tabs successfully" classname="ops-center\ops-center-save.spec.ts" time="12.11">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should open Cloudflare Account modal and validate form" classname="ops-center\ops-center-save.spec.ts" time="4.927">
+<testcase name="Ops Center - Save Functionality › should open Cloudflare Account modal and validate form" classname="ops-center\ops-center-save.spec.ts" time="10.132">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should fill Cloudflare Account form and save successfully" classname="ops-center\ops-center-save.spec.ts" time="8.349">
+<testcase name="Ops Center - Save Functionality › should fill Cloudflare Account form and save successfully" classname="ops-center\ops-center-save.spec.ts" time="11.769">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should validate required fields in Cloudflare Account form" classname="ops-center\ops-center-save.spec.ts" time="5.547">
+<testcase name="Ops Center - Save Functionality › should validate required fields in Cloudflare Account form" classname="ops-center\ops-center-save.spec.ts" time="10.98">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should open Registrar Account modal" classname="ops-center\ops-center-save.spec.ts" time="5.227">
+<testcase name="Ops Center - Save Functionality › should open Registrar Account modal" classname="ops-center\ops-center-save.spec.ts" time="8.217">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should fill Registrar Account form and save successfully" classname="ops-center\ops-center-save.spec.ts" time="7.148">
+<testcase name="Ops Center - Save Functionality › should fill Registrar Account form and save successfully" classname="ops-center\ops-center-save.spec.ts" time="13.022">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should test connection in Registrar Account modal" classname="ops-center\ops-center-save.spec.ts" time="7.259">
+<testcase name="Ops Center - Save Functionality › should test connection in Registrar Account modal" classname="ops-center\ops-center-save.spec.ts" time="10.329">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should open Add Existing Domain modal" classname="ops-center\ops-center-save.spec.ts" time="5.116">
+<testcase name="Ops Center - Save Functionality › should open Add Existing Domain modal" classname="ops-center\ops-center-save.spec.ts" time="8.278">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should fill Add Existing Domain form and save" classname="ops-center\ops-center-save.spec.ts" time="6.186">
+<testcase name="Ops Center - Save Functionality › should fill Add Existing Domain form and save" classname="ops-center\ops-center-save.spec.ts" time="9.455">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should close modal when Cancel is clicked" classname="ops-center\ops-center-save.spec.ts" time="5.309">
+<testcase name="Ops Center - Save Functionality › should close modal when Cancel is clicked" classname="ops-center\ops-center-save.spec.ts" time="8.292">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should display Quick Actions in Overview tab" classname="ops-center\ops-center-save.spec.ts" time="4.416">
+<testcase name="Ops Center - Save Functionality › should display Quick Actions in Overview tab" classname="ops-center\ops-center-save.spec.ts" time="10.522">
 </testcase>
-<testcase name="Ops Center - Save Functionality › should open Check &amp; Register Domain modal" classname="ops-center\ops-center-save.spec.ts" time="20.326">
-<failure message="ops-center-save.spec.ts:418:3 should open Check &amp; Register Domain modal" type="FAILURE">
-<![CDATA[  [chromium] › ops-center\ops-center-save.spec.ts:418:3 › Ops Center - Save Functionality › should open Check & Register Domain modal 
+<testcase name="Ops Center - Save Functionality › should open Check &amp; Register Domain modal" classname="ops-center\ops-center-save.spec.ts" time="3.565">
+</testcase>
+<testcase name="Ops Center - Save Functionality › should handle API errors gracefully" classname="ops-center\ops-center-save.spec.ts" time="5.507">
+</testcase>
+<testcase name="Ops Center - State Management › should reflect added items in the UI" classname="ops-center\ops-center-save.spec.ts" time="6.063">
+</testcase>
+<testcase name="Ops Center - Accessibility › should be navigable via keyboard" classname="ops-center\ops-center-save.spec.ts" time="2.939">
+</testcase>
+<testcase name="Ops Center - Accessibility › should close modal on Escape key press" classname="ops-center\ops-center-save.spec.ts" time="4.428">
+</testcase>
+</testsuite>
+<testsuite name="sites\sites-management.spec.ts" timestamp="2026-02-18T00:23:32.035Z" hostname="chromium" tests="19" failures="7" skipped="0" time="48.669" errors="0">
+<testcase name="Sites Management › should display sites list" classname="sites\sites-management.spec.ts" time="2.334">
+<failure message="sites-management.spec.ts:25:3 should display sites list" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:25:3 › Sites Management › should display sites list ──
 
-    TimeoutError: page.screenshot: Timeout 15000ms exceeded.
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Sites')
+    Expected: visible
+    Error: strict mode violation: getByText('Sites') resolved to 4 elements:
+        1) <span>My Sites</span> aka getByRole('button', { name: '🌐 My Sites' })
+        2) <div>Total Sites</div> aka getByText('Total Sites')
+        3) <h3>🕐 Recent Sites</h3> aka getByRole('heading', { name: '🕐 Recent Sites' })
+        4) <button>View All Sites →</button> aka getByRole('button', { name: 'View All Sites →' })
+
     Call log:
-      - taking page screenshot
-      - waiting for fonts to load...
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('Sites')
 
 
-       at ..\pages\OpsCenterPage.ts:217
-
-      215 |    */
-      216 |   async screenshot(path: string) {
-    > 217 |     await this.page.screenshot({ path, fullPage: true });
-          |                     ^
-      218 |   }
-      219 |
-      220 |   /**
-        at OpsCenterPage.screenshot (F:\astro.build\ppc-claude-web\tests\pages\OpsCenterPage.ts:217:21)
-        at F:\astro.build\ppc-claude-web\tests\e2e\ops-center\ops-center-save.spec.ts:50:19
+      28 |
+      29 |     // Verify statistics cards
+    > 30 |     await expect(page.getByText('Sites')).toBeVisible();
+         |                                           ^
+      31 |     await expect(page.getByText('Builds')).toBeVisible();
+      32 |     await expect(page.getByText('Deployed')).toBeVisible();
+      33 |     await expect(page.getByText('Avg Cost')).toBeVisible();
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:30:43
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\test-failed-1.png
+    ..\..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\video.webm
+    ..\..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\error-context.md
+    Error Context: ..\..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\error-context.md
 
     attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
-    ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\trace.zip
+    ..\..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\trace.zip
     Usage:
 
-        npx playwright show-trace ..\..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\trace.zip
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\trace.zip
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\test-failed-1.png]]
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\test-failed-1.png]]
 
-[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\video.webm]]
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\video.webm]]
 
-[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\error-context.md]]
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\error-context.md]]
 
-[[ATTACHMENT|..\test-results\ops-center-ops-center-save-935eb-Check-Register-Domain-modal-chromium\trace.zip]]
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f869a-t-should-display-sites-list-chromium\trace.zip]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Ops Center - Save Functionality › should handle API errors gracefully" classname="ops-center\ops-center-save.spec.ts" time="5.021">
+<testcase name="Sites Management › should show empty state when no sites" classname="sites\sites-management.spec.ts" time="2.535">
+<failure message="sites-management.spec.ts:43:3 should show empty state when no sites" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:43:3 › Sites Management › should show empty state when no sites 
+
+    Error: expect(received).toBeTruthy()
+
+    Received: false
+
+      47 |
+      48 |     // Either empty state or sites should be visible
+    > 49 |     expect(hasEmptyState || hasSites).toBeTruthy();
+         |                                       ^
+      50 |   });
+      51 |
+      52 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:49:39
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-fea9b-w-empty-state-when-no-sites-chromium\trace.zip]]
+]]>
+</system-out>
 </testcase>
-<testcase name="Ops Center - State Management › should reflect added items in the UI" classname="ops-center\ops-center-save.spec.ts" time="5.496">
+<testcase name="Sites Management › should filter sites when searching" classname="sites\sites-management.spec.ts" time="7.625">
+<failure message="sites-management.spec.ts:55:3 should filter sites when searching" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:55:3 › Sites Management › should filter sites when searching 
+
+    TypeError: page.getByPlaceholderText is not a function
+
+      54 |    */
+      55 |   test('should filter sites when searching', async ({ page }) => {
+    > 56 |     const searchInput = page.getByPlaceholderText(/Search sites/i);
+         |                              ^
+      57 |
+      58 |     // Type search term
+      59 |     await searchInput.fill('test');
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:56:30
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-e8673-filter-sites-when-searching-chromium\trace.zip]]
+]]>
+</system-out>
 </testcase>
-<testcase name="Ops Center - Accessibility › should be navigable via keyboard" classname="ops-center\ops-center-save.spec.ts" time="2.733">
+<testcase name="Sites Management › should open wizard when clicking Create LP" classname="sites\sites-management.spec.ts" time="2.54">
+<failure message="sites-management.spec.ts:75:3 should open wizard when clicking Create LP" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:75:3 › Sites Management › should open wizard when clicking Create LP 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText(/Brand/i)
+
+
+      78 |
+      79 |     // Should see wizard
+    > 80 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 5000 });
+         |                                            ^
+      81 |
+      82 |     // Go back to sites
+      83 |     const cancelBtn = page.getByRole('button').filter({ hasText: /Cancel/i });
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:80:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-78168-ard-when-clicking-Create-LP-chromium\trace.zip]]
+]]>
+</system-out>
 </testcase>
-<testcase name="Ops Center - Accessibility › should close modal on Escape key press" classname="ops-center\ops-center-save.spec.ts" time="4.187">
+<testcase name="Sites Management › should open and close preview modal" classname="sites\sites-management.spec.ts" time="2.305">
+</testcase>
+<testcase name="Sites Management › should open wizard for editing when clicking Edit" classname="sites\sites-management.spec.ts" time="2.289">
+</testcase>
+<testcase name="Sites Management › should open download dropdown" classname="sites\sites-management.spec.ts" time="2.358">
+</testcase>
+<testcase name="Sites Management › should show deploy targets in dropdown" classname="sites\sites-management.spec.ts" time="2.77">
+</testcase>
+<testcase name="Sites Management › should display accurate statistics" classname="sites\sites-management.spec.ts" time="2.45">
+<failure message="sites-management.spec.ts:183:3 should display accurate statistics" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:183:3 › Sites Management › should display accurate statistics 
+
+    Error: locator.textContent: Error: strict mode violation: getByText('Sites').locator('..') resolved to 3 elements:
+        1) <button>…</button> aka getByRole('button', { name: '🌐 My Sites' })
+        2) <div>…</div> aka getByText('Total Sites5🌐')
+        3) <div>…</div> aka getByText('🕐 Recent SitesBBear Loans')
+
+    Call log:
+      - waiting for getByText('Sites').locator('..')
+
+
+      184 |     // Sites count should be a number
+      185 |     const sitesCard = page.getByText('Sites').locator('..');
+    > 186 |     const sitesText = await sitesCard.textContent();
+          |                                       ^
+      187 |
+      188 |     // The stats should be visible
+      189 |     await expect(page.getByText('Sites')).toBeVisible();
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:186:39
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-f3e92-display-accurate-statistics-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Sites Management › should show delete confirmation dialog" classname="sites\sites-management.spec.ts" time="2.198">
+</testcase>
+<testcase name="Sites - Download Options › should trigger Astro Project download" classname="sites\sites-management.spec.ts" time="1.474">
+</testcase>
+<testcase name="Sites - Download Options › should trigger Static HTML download" classname="sites\sites-management.spec.ts" time="1.294">
+</testcase>
+<testcase name="Sites - Download Options › should trigger Apply Page download" classname="sites\sites-management.spec.ts" time="1.311">
+</testcase>
+<testcase name="Sites - Download Options › should trigger Theme JSON download" classname="sites\sites-management.spec.ts" time="1.363">
+</testcase>
+<testcase name="Sites - Deploy Flow › should show configured targets in deploy dropdown" classname="sites\sites-management.spec.ts" time="1.331">
+</testcase>
+<testcase name="Sites - Deploy Flow › should show unconfigured targets as unavailable" classname="sites\sites-management.spec.ts" time="1.458">
+</testcase>
+<testcase name="Sites - Deploy Flow › should display deployed URLs when site is deployed" classname="sites\sites-management.spec.ts" time="6.723">
+<failure message="sites-management.spec.ts:375:3 should display deployed URLs when site is deployed" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:375:3 › Sites - Deploy Flow › should display deployed URLs when site is deployed 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('a[href^="https://"]').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for locator('a[href^="https://"]').first()
+        9 × locator resolved to <a target="_blank" href="https://astro.build/integrations/">View all</a>
+          - unexpected value "hidden"
+
+
+      383 |     // If there are deployed sites, their URLs should be visible
+      384 |     if (count > 0) {
+    > 385 |       await expect(deployedLinks.first()).toBeVisible();
+          |                                           ^
+      386 |     }
+      387 |   });
+      388 | });
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:385:43
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-ab9bb--URLs-when-site-is-deployed-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Sites - Keyboard Navigation › should be keyboard navigable" classname="sites\sites-management.spec.ts" time="2.396">
+</testcase>
+<testcase name="Sites - Keyboard Navigation › should respond to Enter key on buttons" classname="sites\sites-management.spec.ts" time="1.915">
+<failure message="sites-management.spec.ts:409:3 should respond to Enter key on buttons" type="FAILURE">
+<![CDATA[  [chromium] › sites\sites-management.spec.ts:409:3 › Sites - Keyboard Navigation › should respond to Enter key on buttons 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText(/Brand/i)
+
+
+      418 |
+      419 |     // Should open wizard
+    > 420 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 5000 });
+          |                                            ^
+      421 |
+      422 |     // Go back
+      423 |     const cancelBtn = page.getByRole('button').filter({ hasText: /Cancel/i });
+        at F:\astro.build\ppc-claude-web\tests\e2e\sites\sites-management.spec.ts:420:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\sites-sites-management-Sit-64a23-ond-to-Enter-key-on-buttons-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="wizard\wizard-flow.spec.ts" timestamp="2026-02-18T00:23:32.035Z" hostname="chromium" tests="15" failures="15" skipped="0" time="36.84" errors="0">
+<testcase name="LP Wizard - Complete Flow › should complete Step 1 - Brand and Domain" classname="wizard\wizard-flow.spec.ts" time="2.641">
+<failure message="wizard-flow.spec.ts:31:3 should complete Step 1 - Brand and Domain" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:31:3 › LP Wizard - Complete Flow › should complete Step 1 - Brand and Domain 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-c1a21-e-Step-1---Brand-and-Domain-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should show validation errors on Step 1 with empty fields" classname="wizard\wizard-flow.spec.ts" time="2.609">
+<failure message="wizard-flow.spec.ts:62:3 should show validation errors on Step 1 with empty fields" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:62:3 › LP Wizard - Complete Flow › should show validation errors on Step 1 with empty fields 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-58da6-on-Step-1-with-empty-fields-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should reject invalid domain format" classname="wizard\wizard-flow.spec.ts" time="2.494">
+<failure message="wizard-flow.spec.ts:75:3 should reject invalid domain format" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:75:3 › LP Wizard - Complete Flow › should reject invalid domain format 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d7f12-eject-invalid-domain-format-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should complete Step 2 - Product Configuration" classname="wizard\wizard-flow.spec.ts" time="2.511">
+<failure message="wizard-flow.spec.ts:93:3 should complete Step 2 - Product Configuration" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:93:3 › LP Wizard - Complete Flow › should complete Step 2 - Product Configuration 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-d70cf-p-2---Product-Configuration-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should validate amount range on Step 2" classname="wizard\wizard-flow.spec.ts" time="1.986">
+<failure message="wizard-flow.spec.ts:135:3 should validate amount range on Step 2" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:135:3 › LP Wizard - Complete Flow › should validate amount range on Step 2 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-948e9-date-amount-range-on-Step-2-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should complete Step 3 - Design Selection" classname="wizard\wizard-flow.spec.ts" time="2.006">
+<failure message="wizard-flow.spec.ts:170:3 should complete Step 3 - Design Selection" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:170:3 › LP Wizard - Complete Flow › should complete Step 3 - Design Selection 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2cf0a-e-Step-3---Design-Selection-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should require color selection on Step 3" classname="wizard\wizard-flow.spec.ts" time="2.003">
+<failure message="wizard-flow.spec.ts:204:3 should require color selection on Step 3" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:204:3 › LP Wizard - Complete Flow › should require color selection on Step 3 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-f6752-e-color-selection-on-Step-3-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should complete Step 4 - Copy &amp; Content" classname="wizard\wizard-flow.spec.ts" time="2.158">
+<failure message="wizard-flow.spec.ts:222:3 should complete Step 4 - Copy &amp; Content" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:222:3 › LP Wizard - Complete Flow › should complete Step 4 - Copy & Content 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-4bcc7-plete-Step-4---Copy-Content-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should complete Step 5 - Tracking &amp; Conversion" classname="wizard\wizard-flow.spec.ts" time="1.996">
+<failure message="wizard-flow.spec.ts:257:3 should complete Step 5 - Tracking &amp; Conversion" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:257:3 › LP Wizard - Complete Flow › should complete Step 5 - Tracking & Conversion 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-132a8-tep-5---Tracking-Conversion-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should require redirect URL or form embed on Step 5" classname="wizard\wizard-flow.spec.ts" time="2.207">
+<failure message="wizard-flow.spec.ts:285:3 should require redirect URL or form embed on Step 5" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:285:3 › LP Wizard - Complete Flow › should require redirect URL or form embed on Step 5 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-51c4c-URL-or-form-embed-on-Step-5-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should reject invalid redirect URL format" classname="wizard\wizard-flow.spec.ts" time="2.901">
+<failure message="wizard-flow.spec.ts:305:3 should reject invalid redirect URL format" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:305:3 › LP Wizard - Complete Flow › should reject invalid redirect URL format 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-2e927-invalid-redirect-URL-format-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should show review summary on Step 6" classname="wizard\wizard-flow.spec.ts" time="2.246">
+<failure message="wizard-flow.spec.ts:328:3 should show review summary on Step 6" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:328:3 › LP Wizard - Complete Flow › should show review summary on Step 6 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-befa7-ow-review-summary-on-Step-6-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should navigate back to previous steps" classname="wizard\wizard-flow.spec.ts" time="2.942">
+<failure message="wizard-flow.spec.ts:357:3 should navigate back to previous steps" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:357:3 › LP Wizard - Complete Flow › should navigate back to previous steps 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1d50b-gate-back-to-previous-steps-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should cancel wizard and return to dashboard" classname="wizard\wizard-flow.spec.ts" time="2.896">
+<failure message="wizard-flow.spec.ts:379:3 should cancel wizard and return to dashboard" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:379:3 › LP Wizard - Complete Flow › should cancel wizard and return to dashboard 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-1ae42-ard-and-return-to-dashboard-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="LP Wizard - Complete Flow › should complete full wizard with minimal valid data" classname="wizard\wizard-flow.spec.ts" time="3.244">
+<failure message="wizard-flow.spec.ts:391:3 should complete full wizard with minimal valid data" type="FAILURE">
+<![CDATA[  [chromium] › wizard\wizard-flow.spec.ts:391:3 › LP Wizard - Complete Flow › should complete full wizard with minimal valid data 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Brand/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/Brand/i) resolved to 3 elements:
+        1) <span>Brand</span> aka getByText('Brand', { exact: true })
+        2) <h2>Brand Information</h2> aka getByRole('heading', { name: 'Brand Information' })
+        3) <label>…</label> aka getByText('Brand Name *')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/Brand/i)
+
+
+      23 |
+      24 |     // Wait for wizard to appear
+    > 25 |     await expect(page.getByText(/Brand/i)).toBeVisible({ timeout: 10000 });
+         |                                            ^
+      26 |   });
+      27 |
+      28 |   /**
+        at F:\astro.build\ppc-claude-web\tests\e2e\wizard\wizard-flow.spec.ts:25:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\error-context.md]]
+
+[[ATTACHMENT|..\test-results\wizard-wizard-flow-LP-Wiza-ba781-ard-with-minimal-valid-data-chromium\trace.zip]]
+]]>
+</system-out>
 </testcase>
 </testsuite>
 </testsuites>
