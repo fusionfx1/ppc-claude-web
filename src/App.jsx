@@ -158,7 +158,7 @@ export default function App() {
     setPage("create");
   };
 
-  const addSite = (site) => {
+  const addSite = async (site) => {
     console.log("[App] addSite called with:", { id: site.id, brand: site.brand, templateId: site.templateId, _editMode: site._editMode });
     if (site._editMode) {
       // Update existing site (redeploy)
@@ -177,8 +177,9 @@ export default function App() {
       });
       setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
 
-      if (neonOk) db.saveSite(site).catch(() => {});
-      else if (apiOk) api.post("/sites", site).catch(() => {});
+      // Wait for save to complete before navigating
+      if (neonOk) await db.saveSite(site).catch(() => {});
+      else if (apiOk) await api.post("/sites", site).catch(() => {});
 
       notify(`${site.brand} created!`);
     }
