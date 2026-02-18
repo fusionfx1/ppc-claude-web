@@ -11,36 +11,57 @@
 import { neon } from "@neondatabase/serverless";
 
 let sql = null;
+let connectionString = null;
 
 /**
  * Initialize the Neon connection. Call once on app start.
- * @param {string} connectionString - Neon pooler connection string
+ * @param {string} connStr - Neon connection string (supports both pooler and serverless)
  */
-export function initNeon(connectionString) {
-  if (!connectionString) return false;
+export function initNeon(connStr) {
+  if (!connStr) return false;
+  connectionString = connStr;
   try {
-    sql = neon(connectionString);
+    sql = neon(connStr);
+    console.log("[neon] Connection initialized");
     return true;
-  } catch {
+  } catch (e) {
+    console.warn("[neon] Init failed:", e.message);
     sql = null;
     return false;
   }
+}
+
+/**
+ * Ensure connection is alive, reconnect if needed
+ * @internal
+ */
+function ensureConnection() {
+  if (!sql && connectionString) {
+    try {
+      sql = neon(connectionString);
+      console.log("[neon] Reconnected");
+    } catch (e) {
+      console.warn("[neon] Reconnect failed:", e.message);
+    }
+  }
+  return sql !== null;
 }
 
 /** Check if Neon is connected
  * @internal - used only within this module
  */
 function isNeonReady() {
-  return sql !== null;
+  return ensureConnection();
 }
 
 /** Test connectivity */
 export async function ping() {
-  if (!sql) return false;
+  if (!ensureConnection()) return false;
   try {
     const rows = await sql`SELECT 1 as ok`;
     return rows?.[0]?.ok === 1;
-  } catch {
+  } catch (e) {
+    console.warn("[neon] Ping failed:", e.message);
     return false;
   }
 }
@@ -51,7 +72,7 @@ export async function ping() {
 
 /** Load all settings as a flat object */
 export async function loadSettings() {
-  if (!sql) return null;
+  if (!ensureConnection()) return null;
   try {
     const rows = await sql`SELECT key, value FROM settings`;
     const result = {};
@@ -76,7 +97,7 @@ export async function saveSettings(obj) {
     console.warn("[neon] localStorage fallback error:", e.message);
   }
 
-  if (!sql) return false;
+  if (!ensureConnection()) return false;
   try {
     for (const [key, value] of Object.entries(obj)) {
       await sql`
@@ -98,7 +119,7 @@ export async function saveSettings(obj) {
 
 /** Load all sites */
 export async function loadSites() {
-  if (!sql) return null;
+  if (!ensureConnection()) return null;
   try {
     const rows = await sql`SELECT id, data, created_at FROM sites ORDER BY created_at DESC`;
     const sites = rows.map(r => {
@@ -116,7 +137,10 @@ export async function loadSites() {
 
 /** Upsert a site */
 export async function saveSite(site) {
-  if (!sql) return false;
+  if (!ensureConnection()) {
+    console.warn("[neon] saveSite - no connection");
+    return false;
+  }
   try {
     const { id, ...data } = site;
     console.log("[neon] saveSite - saving site with templateId:", data.templateId);
@@ -126,16 +150,19 @@ export async function saveSite(site) {
       VALUES (${id}, ${JSON.stringify(data)}, now(), now())
       ON CONFLICT (id) DO UPDATE SET data = ${JSON.stringify(data)}, updated_at = now()
     `;
+    console.log("[neon] saveSite - success");
     return true;
   } catch (e) {
     console.warn("[neon] saveSite error:", e.message);
+    // Try reconnecting on failure
+    sql = null;
     return false;
   }
 }
 
 /** Delete a site */
 export async function deleteSite(id) {
-  if (!sql) return false;
+  if (!ensureConnection()) return false;
   try {
     await sql`DELETE FROM sites WHERE id = ${id}`;
     return true;
@@ -151,7 +178,7 @@ export async function deleteSite(id) {
 
 /** Load recent deploys (last 100) */
 export async function loadDeploys() {
-  if (!sql) return null;
+  if (!ensureConnection()) return null;
   try {
     const rows = await sql`
       SELECT id, site_id, target, url, status, brand, created_at
@@ -174,7 +201,7 @@ export async function loadDeploys() {
 
 /** Save a deploy record */
 export async function saveDeploy(deploy) {
-  if (!sql) return false;
+  if (!ensureConnection()) return false;
   try {
     await sql`
       INSERT INTO deploy_history (id, site_id, target, url, status, brand, created_at)
@@ -197,7 +224,7 @@ export async function saveDeploy(deploy) {
  * Called on first connection when Neon tables are empty.
  */
 export async function syncFromLocal(localSettings, localSites, localDeploys) {
-  if (!sql) return;
+  if (!ensureConnection()) return;
   try {
     // Settings
     if (localSettings && Object.keys(localSettings).length > 0) {
