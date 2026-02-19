@@ -60,13 +60,14 @@ export function StepTracking({ c, u }) {
                 </Field>
             </div>
 
-            {/* Fallback: manual form embed or redirect */}
-            {!hasAid && <>
-                <Field label="Redirect URL" help="Where users go after clicking CTA (if no AID)"><Inp value={c.redirectUrl} onChange={v => u("redirectUrl", v)} placeholder="https://offers.leadsgate.com/..." /></Field>
-                <Field label="Form Embed Code (Advanced)" help="Raw embed code — tracking callbacks NOT auto-added">
-                    <textarea
-                        value={c.formEmbed || `const _lg_form_init_ = {
-    aid: "${c.aid || "YOUR_AID"}",
+            {/* Redirect URL */}
+            <Field label="Redirect URL" help="Where users go after clicking CTA (if no AID)"><Inp value={c.redirectUrl} onChange={v => u("redirectUrl", v)} placeholder="https://offers.leadsgate.com/..." /></Field>
+
+            {/* Form Embed Code (Advanced) - Always visible for custom configurations */}
+            <Field label="Form Embed Code (Advanced)" help="Raw embed code — tracking callbacks NOT auto-added">
+                <textarea
+                    value={c.formEmbed || `const _lg_form_init_ = {
+    aid: "${c.aid || "14881"}",
     template: "fresh",
     hooks: {
         onFormLoad: function () {
@@ -89,17 +90,16 @@ export function StepTracking({ c, u }) {
         }
     }
 };`}
-                        onChange={e => u("formEmbed", e.target.value)}
-                        style={{
-                            width: "100%", minHeight: 120, padding: "10px 12px",
-                            background: T.input, border: `1px solid ${embedWarning ? T.danger : T.border}`,
-                            borderRadius: 8, color: T.text, fontSize: 11, fontFamily: "monospace",
-                            resize: "vertical",
-                        }}
-                    />
-                    {embedWarning && <div style={{ fontSize: 10, color: T.danger, marginTop: 4 }}>Embed should contain &lt;script&gt;, &lt;div&gt;, or &lt;iframe&gt; tags</div>}
-                </Field>
-            </>}
+                    onChange={e => u("formEmbed", e.target.value)}
+                    style={{
+                        width: "100%", minHeight: 120, padding: "10px 12px",
+                        background: T.input, border: `1px solid ${embedWarning ? T.danger : T.border}`,
+                        borderRadius: 8, color: T.text, fontSize: 11, fontFamily: "monospace",
+                        resize: "vertical",
+                    }}
+                />
+                {embedWarning && <div style={{ fontSize: 10, color: T.danger, marginTop: 4 }}>Embed should contain &lt;script&gt;, &lt;div&gt;, or &lt;iframe&gt; tags</div>}
+            </Field>
         </>
     );
 }
