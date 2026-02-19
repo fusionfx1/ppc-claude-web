@@ -65,13 +65,35 @@ export function StepTracking({ c, u }) {
                 <Field label="Redirect URL" help="Where users go after clicking CTA (if no AID)"><Inp value={c.redirectUrl} onChange={v => u("redirectUrl", v)} placeholder="https://offers.leadsgate.com/..." /></Field>
                 <Field label="Form Embed Code (Advanced)" help="Raw embed code — tracking callbacks NOT auto-added">
                     <textarea
-                        value={c.formEmbed || ""}
+                        value={c.formEmbed || `const _lg_form_init_ = {
+    aid: "${c.aid || "YOUR_AID"}",
+    template: "fresh",
+    hooks: {
+        onFormLoad: function () {
+            console.log("Form loaded");
+        },
+        onStepChange: function (data) {
+            // console.log("Step:", data.step);
+        },
+        onSubmit: function () {
+            console.log("Form submitted");
+        },
+        onLeadSold: function (data) {
+            console.log("Lead sold:", data.leadId, data.price);
+        },
+        onLeadRejected: function (data) {
+            console.log("Lead rejected:", data.leadId);
+        },
+        onLeadFinished: function (data) {
+            console.log("Lead finished:", data.leadId, data.price);
+        }
+    }
+};`}
                         onChange={e => u("formEmbed", e.target.value)}
-                        placeholder='<script src="https://..."></script>'
                         style={{
-                            width: "100%", minHeight: 80, padding: "10px 12px",
+                            width: "100%", minHeight: 120, padding: "10px 12px",
                             background: T.input, border: `1px solid ${embedWarning ? T.danger : T.border}`,
-                            borderRadius: 8, color: T.text, fontSize: 12, fontFamily: "monospace",
+                            borderRadius: 8, color: T.text, fontSize: 11, fontFamily: "monospace",
                             resize: "vertical",
                         }}
                     />
