@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { THEME as T } from "../constants";
-import { Inp, Sel } from "./Atoms";
+import { InputField as Inp, SelectField as Sel } from "./ui/input-field";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { api } from "../services/api";

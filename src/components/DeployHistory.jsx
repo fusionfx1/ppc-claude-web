@@ -1,27 +1,30 @@
 import React from "react";
-import { THEME as T } from "../constants";
-import { Card, Badge } from "./Atoms";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
 
 export function DeployHistory({ deploys }) {
     return (
-        <div style={{ animation: "fadeIn .3s ease" }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>🚀 Deploy History</h1>
-            <p style={{ color: T.muted, fontSize: 12, marginBottom: 20 }}>All Netlify deployments</p>
+        <div className="animate-[fadeIn_.3s_ease]">
+            <h1 className="text-[22px] font-bold m-0 mb-1">🚀 Deploy History</h1>
+            <p className="text-[hsl(var(--muted-foreground))] text-xs mb-5">All Netlify deployments</p>
             {deploys.length === 0 ? (
-                <Card style={{ textAlign: "center", padding: 50 }}>
-                    <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>No deployments yet</div>
+                <Card className="text-center p-12">
+                    <div className="text-4xl mb-2">🚀</div>
+                    <div className="text-[15px] font-semibold">No deployments yet</div>
                 </Card>
             ) : deploys.map(d => (
-                <Card key={d.id} style={{ padding: "12px 18px", marginBottom: 6, display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: d.type === "new" ? `${T.success}22` : `${T.accent}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{d.type === "new" ? "🆕" : "🔄"}</div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{d.brand}</div>
-                        <a href={d.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: T.accent }}>{d.url}</a>
+                <Card key={d.id} className="px-4 py-3 mb-1.5 flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base ${d.type === "new" ? "bg-[hsl(var(--success))/13]" : "bg-[hsl(var(--accent))/13]"}`}>
+                        {d.type === "new" ? "🆕" : "🔄"}
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                        <Badge color={d.type === "new" ? T.success : T.accent}>{d.type}</Badge>
-                        <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>{new Date(d.ts).toLocaleString()}</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold">{d.brand}</div>
+                        <a href={d.url} target="_blank" rel="noreferrer"
+                            className="text-[11px] text-[hsl(var(--accent))] no-underline">{d.url}</a>
+                    </div>
+                    <div className="text-right">
+                        <Badge variant={d.type === "new" ? "success" : "default"}>{d.type}</Badge>
+                        <div className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">{new Date(d.ts).toLocaleString()}</div>
                     </div>
                 </Card>
             ))}

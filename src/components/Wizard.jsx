@@ -3,7 +3,9 @@ import { THEME as T } from "../constants";
 import { uid, now } from "../utils";
 import { generateHtmlByTemplate } from "../utils/template-router";
 import { api } from "../services/api";
-import { Card, Btn, MockPhone } from "./Atoms";
+import { MockPhone } from "./Atoms";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
 import { StepBrand, StepProduct, StepDesign, StepCopy, StepTracking, StepReview } from "./Wizard/index.js";
 
 // Domain validation regex
@@ -209,32 +211,32 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
     const mainMaxWidth = showPreview ? 680 : 780;
 
     return (
-        <div style={{ maxWidth: 1060, margin: "0 auto", animation: "fadeIn .3s ease" }} onKeyDown={handleKeyDown}>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>Create New LP</h1>
-            <p style={{ color: T.muted, fontSize: 12, marginBottom: 20 }}>Build a PPC-optimized loan landing page</p>
+        <div className="max-w-[1060px] mx-auto animate-[fadeIn_.3s_ease]" onKeyDown={handleKeyDown}>
+            <h1 className="text-[20px] font-bold m-0 mb-1">Create New LP</h1>
+            <p className="text-[hsl(var(--muted-foreground))] text-xs mb-5">Build a PPC-optimized loan landing page</p>
 
-            <Card style={{ padding: "14px 18px", marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-                    <b>Step {step}/6</b><span style={{ color: T.muted }}>{steps[step - 1]}</span>
+            <Card className="px-4 py-3.5 mb-4">
+                <div className="flex justify-between text-xs mb-1.5">
+                    <b>Step {step}/6</b>
+                    <span className="text-[hsl(var(--muted-foreground))]">{steps[step - 1]}</span>
                 </div>
-                <div style={{ height: 4, background: T.border, borderRadius: 2 }}>
-                    <div style={{ height: "100%", width: `${step / 6 * 100}%`, background: T.grad, borderRadius: 2, transition: "width .3s" }} />
+                <div className="h-1 bg-[hsl(var(--border))] rounded-sm">
+                    <div className="h-full bg-[hsl(var(--primary))] rounded-sm transition-[width_.3s]" style={{ width: `${step / 6 * 100}%` }} />
                 </div>
             </Card>
 
-            {/* Validation Errors */}
             {validationErrors.length > 0 && (
-                <div style={{ background: `${T.danger}15`, border: `1px solid ${T.danger}55`, borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: T.danger, marginBottom: 6 }}>⚠️ Please fix before continuing:</div>
+                <div className="bg-[hsl(var(--destructive))/8] border border-[hsl(var(--destructive))/33] rounded-lg px-4 py-3 mb-4">
+                    <div className="text-xs font-semibold text-[hsl(var(--destructive))] mb-1.5">⚠️ Please fix before continuing:</div>
                     {validationErrors.map((err, i) => (
-                        <div key={i} style={{ fontSize: 11, color: T.danger, marginLeft: 4 }}>• {err}</div>
+                        <div key={i} className="text-[11px] text-[hsl(var(--destructive))] ml-1">• {err}</div>
                     ))}
                 </div>
             )}
 
             {showPreview ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
-                    <Card style={{ padding: 28, marginBottom: 16 }} ref={cardRef}>
+                <div className="grid gap-6 items-start" style={{ gridTemplateColumns: "1fr 340px" }}>
+                    <Card className="p-7 mb-4" ref={cardRef}>
                         {step === 1 && <StepBrand c={config} u={upd} />}
                         {step === 2 && <StepProduct c={config} u={upd} />}
                         {step === 3 && <StepDesign c={config} u={upd} />}
@@ -242,14 +244,14 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
                         {step === 5 && <StepTracking c={config} u={upd} />}
                         {step === 6 && <StepReview c={config} building={building} />}
                     </Card>
-                    <div style={{ position: "sticky", top: 24 }}>
+                    <div className="sticky top-6">
                         <MockPhone>
-                            <iframe title="mobile-preview" style={{ width: "100%", height: "100%", border: "none" }} srcDoc={previewHtml} />
+                            <iframe title="mobile-preview" className="w-full h-full border-none" srcDoc={previewHtml} />
                         </MockPhone>
                     </div>
                 </div>
             ) : (
-                <Card style={{ padding: 28, marginBottom: 16, maxWidth: 780, margin: "0 auto 16px auto" }} ref={cardRef}>
+                <Card className="p-7 mb-4 max-w-[780px] mx-auto" ref={cardRef}>
                     {step === 1 && <StepBrand c={config} u={upd} />}
                     {step === 2 && <StepProduct c={config} u={upd} />}
                     {step === 3 && <StepDesign c={config} u={upd} />}
@@ -259,16 +261,16 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
                 </Card>
             )}
 
-            <div style={{ display: "flex", justifyContent: "space-between", maxWidth: 780 }}>
-                <Btn variant="ghost" onClick={handleBackOrCancel}>
+            <div className="flex justify-between max-w-[780px]">
+                <Button variant="ghost" onClick={handleBackOrCancel}>
                     ← {step === 1 ? "Cancel" : "Back"}
-                </Btn>
+                </Button>
                 {step < 6 ? (
-                    <Btn onClick={handleNext}>Next →</Btn>
+                    <Button onClick={handleNext}>Next →</Button>
                 ) : (
-                    <Btn onClick={handleBuild} disabled={building} style={{ padding: "10px 24px" }}>
+                    <Button onClick={handleBuild} disabled={building} className="px-6 py-2.5">
                         {building ? "⏳ Saving..." : config._editMode ? "✅ Update & Save" : "🚀 Build & Save"}
-                    </Btn>
+                    </Button>
                 )}
             </div>
         </div>

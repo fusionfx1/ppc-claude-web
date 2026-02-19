@@ -2,7 +2,10 @@ import React, { useState, useMemo, useCallback } from "react";
 import { THEME as T, COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants";
 import { uid, now, hsl } from "../utils";
 import { generateLP, makeThemeJson } from "../utils/lp-generator";
-import { Card, Inp, Btn, Badge, Dot } from "./Atoms";
+import { Dot } from "./Atoms";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
+import { InputField as Inp } from "./ui/input-field";
 import { api } from "../services/api";
 
 /* ─── Extracted to module level to avoid re-creation on every render ─── */
@@ -10,18 +13,19 @@ function VarCard({ variant, onBuild, onExport, showActions = true }) {
     const c = COLORS.find(x => x.id === variant.colorId) || COLORS[0];
     const f = FONTS.find(x => x.id === variant.fontId) || FONTS[0];
     return (
-        <Card style={{ padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: hsl(...c.p), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 700 }}>{variant.brand?.[0]}</div>
-            <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{variant.brand}</div>
-                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <Card className="p-3 flex gap-3 items-center">
+            <div className="w-11 h-11 rounded-[10px] flex items-center justify-center text-lg text-white font-bold shrink-0"
+                style={{ background: hsl(...c.p) }}>{variant.brand?.[0]}</div>
+            <div className="flex-1">
+                <div className="text-[13px] font-bold">{variant.brand}</div>
+                <div className="flex gap-2 mt-1">
                     <Dot c={hsl(...c.p)} label={c.name} />
                     <Dot c={T.primary} label={f.name} />
                 </div>
             </div>
-            {showActions && <div style={{ display: "flex", gap: 4 }}>
-                <Btn variant="ghost" onClick={() => onBuild(variant)} style={{ padding: "4px 8px", fontSize: 10 }}>Build</Btn>
-                <Btn variant="ghost" onClick={() => onExport(variant)} style={{ padding: "4px 8px", fontSize: 10 }}>JSON</Btn>
+            {showActions && <div className="flex gap-1">
+                <Button variant="ghost" onClick={() => onBuild(variant)} className="px-2 py-1 text-[10px] h-auto">Build</Button>
+                <Button variant="ghost" onClick={() => onExport(variant)} className="px-2 py-1 text-[10px] h-auto">JSON</Button>
             </div>}
         </Card>
     );
@@ -84,66 +88,78 @@ export function VariantStudio({ notify, sites, addSite, registry, setRegistry, a
         setLoadingAsset(null);
     };
 
+    const selectCls = "w-full px-2 py-2 rounded-md bg-[hsl(var(--input))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] text-xs cursor-pointer outline-none";
+    const sectionLabel = "text-[13px] font-bold text-[hsl(var(--muted-foreground))] mb-3 mt-6 uppercase tracking-[1px]";
+
     return (
-        <div style={{ animation: "fadeIn .3s ease" }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 16px" }}>🎨 Variant Studio</h1>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-                <Card style={{ padding: 24 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Configuration</h3>
-                    <div style={{ marginBottom: 14 }}><label style={{ fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>Brand Name</label><Inp value={v.brand} onChange={val => set("brand", val)} /></div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                        <div><label style={{ fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>Color</label>
-                            <select value={v.colorId} onChange={e => set("colorId", e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, background: T.input, border: `1px solid ${T.border}`, color: T.text, fontSize: 12 }}>
+        <div className="animate-[fadeIn_.3s_ease]">
+            <h1 className="text-[22px] font-bold m-0 mb-4">🎨 Variant Studio</h1>
+            <div className="grid grid-cols-2 gap-6">
+                <Card className="p-6">
+                    <h3 className="text-[15px] font-bold mb-4">Configuration</h3>
+                    <div className="mb-3.5">
+                        <label className="text-[11px] font-bold block mb-1.5">Brand Name</label>
+                        <Inp value={v.brand} onChange={val => set("brand", val)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5 mb-3.5">
+                        <div>
+                            <label className="text-[11px] font-bold block mb-1.5">Color</label>
+                            <select value={v.colorId} onChange={e => set("colorId", e.target.value)} className={selectCls}>
                                 {COLORS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
-                        <div><label style={{ fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>Font</label>
-                            <select value={v.fontId} onChange={e => set("fontId", e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, background: T.input, border: `1px solid ${T.border}`, color: T.text, fontSize: 12 }}>
+                        <div>
+                            <label className="text-[11px] font-bold block mb-1.5">Font</label>
+                            <select value={v.fontId} onChange={e => set("fontId", e.target.value)} className={selectCls}>
                                 {FONTS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                             </select>
                         </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                        <Btn onClick={randomize} variant="ghost" style={{ flex: 1 }}>🎲 Randomize</Btn>
-                        <Btn onClick={() => saveToReg(v)} style={{ flex: 1 }}>💾 Save Variant</Btn>
+                    <div className="flex gap-2 mb-5">
+                        <Button onClick={randomize} variant="ghost" className="flex-1">🎲 Randomize</Button>
+                        <Button onClick={() => saveToReg(v)} className="flex-1">💾 Save Variant</Button>
                     </div>
-                    <hr style={{ border: "none", borderTop: `1px solid ${T.border}`, margin: "20px 0" }} />
-                    <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>⚡ Batch Generation</h3>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <hr className="border-none border-t border-[hsl(var(--border))] my-5" />
+                    <h3 className="text-[15px] font-bold mb-4">⚡ Batch Generation</h3>
+                    <div className="flex gap-2.5 items-center">
                         <Inp type="number" value={batch} onChange={val => setBatch(+val)} style={{ width: 60 }} />
-                        <Btn onClick={batchGenerate} style={{ flex: 1 }}>Generate Multi-Variants</Btn>
+                        <Button onClick={batchGenerate} className="flex-1">Generate Multi-Variants</Button>
                     </div>
                 </Card>
 
                 <div>
-                    <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>Registry ({registry.length})</h3>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflow: "auto", paddingRight: 4 }}>
-                        {registry.length === 0 ? <div style={{ textAlign: "center", padding: 40, border: `1px dashed ${T.border}`, borderRadius: 10, color: T.dim, fontSize: 12 }}>No saved variants</div> : registry.map(rv => <VarCard key={rv.id} variant={rv} onBuild={createFromVar} onExport={exportVar} />)}
+                    <div className={sectionLabel}>Registry ({registry.length})</div>
+                    <div className="flex flex-col gap-2 max-h-[280px] overflow-auto pr-1">
+                        {registry.length === 0
+                            ? <div className="text-center p-10 border border-dashed border-[hsl(var(--border))] rounded-[10px] text-[hsl(var(--muted-foreground))] text-xs">No saved variants</div>
+                            : registry.map(rv => <VarCard key={rv.id} variant={rv} onBuild={createFromVar} onExport={exportVar} />)}
                     </div>
 
-                    <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, marginTop: 24, textTransform: "uppercase", letterSpacing: 1 }}>✨ AI Asset Studio</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <Card style={{ padding: 12, textAlign: "center" }}>
-                            <div style={{ height: 100, background: T.input, borderRadius: 8, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                                {assets.logo ? <img src={assets.logo} style={{ width: "100%", height: "100%", objectFit: "contain" }} alt="Logo" /> : <div style={{ fontSize: 24 }}>🏢</div>}
+                    <div className={sectionLabel}>✨ AI Asset Studio</div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Card className="p-3 text-center">
+                            <div className="h-[100px] bg-[hsl(var(--input))] rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                                {assets.logo ? <img src={assets.logo} className="w-full h-full object-contain" alt="Logo" /> : <div className="text-2xl">🏢</div>}
                             </div>
-                            <Btn variant="ghost" onClick={() => genAsset("logo")} disabled={loadingAsset === "logo"} style={{ width: "100%", fontSize: 11 }}>
+                            <Button variant="ghost" onClick={() => genAsset("logo")} disabled={loadingAsset === "logo"} className="w-full text-[11px]">
                                 {loadingAsset === "logo" ? "Generating..." : "Generate Logo"}
-                            </Btn>
+                            </Button>
                         </Card>
-                        <Card style={{ padding: 12, textAlign: "center" }}>
-                            <div style={{ height: 100, background: T.input, borderRadius: 8, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                                {assets.hero ? <img src={assets.hero} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Hero" /> : <div style={{ fontSize: 24 }}>🖼️</div>}
+                        <Card className="p-3 text-center">
+                            <div className="h-[100px] bg-[hsl(var(--input))] rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                                {assets.hero ? <img src={assets.hero} className="w-full h-full object-cover" alt="Hero" /> : <div className="text-2xl">🖼️</div>}
                             </div>
-                            <Btn variant="ghost" onClick={() => genAsset("hero")} disabled={loadingAsset === "hero"} style={{ width: "100%", fontSize: 11 }}>
+                            <Button variant="ghost" onClick={() => genAsset("hero")} disabled={loadingAsset === "hero"} className="w-full text-[11px]">
                                 {loadingAsset === "hero" ? "Generating..." : "Generate Hero"}
-                            </Btn>
+                            </Button>
                         </Card>
                     </div>
 
-                    <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, marginTop: 24, textTransform: "uppercase", letterSpacing: 1 }}>Generated Batch</h3>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {previews.length === 0 ? <div style={{ textAlign: "center", padding: 40, border: `1px dashed ${T.border}`, borderRadius: 10, color: T.dim, fontSize: 12 }}>Click generate to see themes</div> : previews.map(pv => <VarCard key={pv.id} variant={pv} onBuild={createFromVar} onExport={exportVar} />)}
+                    <div className={sectionLabel}>Generated Batch</div>
+                    <div className="flex flex-col gap-2">
+                        {previews.length === 0
+                            ? <div className="text-center p-10 border border-dashed border-[hsl(var(--border))] rounded-[10px] text-[hsl(var(--muted-foreground))] text-xs">Click generate to see themes</div>
+                            : previews.map(pv => <VarCard key={pv.id} variant={pv} onBuild={createFromVar} onExport={exportVar} />)}
                     </div>
                 </div>
             </div>

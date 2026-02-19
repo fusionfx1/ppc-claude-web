@@ -6,7 +6,7 @@ import { makeThemeJson, htmlToZip, astroProjectToZip } from "../utils/lp-generat
 import { generateHtmlByTemplate, generateAstroProjectByTemplate, generateApplyPageByTemplate } from "../utils/template-router";
 
 import { deployTo, DEPLOY_TARGETS, getAvailableTargets } from "../utils/deployers";
-import { Inp } from "./Atoms";
+import { InputField as Inp } from "./ui/input-field";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
