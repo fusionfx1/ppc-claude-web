@@ -1,6 +1,6 @@
 import React from "react";
 import { THEME as T } from "../constants";
-import { Dot } from "./Atoms";
+import { Dot } from "./ui/dot";
 
 export function TopBar({ stats, settings, deploys, apiOk, neonOk, onReconnectNeon }) {
     return (

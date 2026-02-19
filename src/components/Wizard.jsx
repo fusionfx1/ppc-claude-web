@@ -3,7 +3,7 @@ import { THEME as T } from "../constants";
 import { uid, now } from "../utils";
 import { generateHtmlByTemplate } from "../utils/template-router";
 import { api } from "../services/api";
-import { MockPhone } from "./Atoms";
+import { MockPhone } from "./ui/mock-phone";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { StepBrand, StepProduct, StepDesign, StepCopy, StepTracking, StepReview } from "./Wizard/index.js";

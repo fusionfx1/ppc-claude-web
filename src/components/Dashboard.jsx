@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { THEME as T, COLORS, APP_VERSION } from "../constants";
 import { hsl } from "../utils";
 import { detectRisks } from "../utils/risk-engine";
-import { Dot } from "./Atoms";
+import { Dot } from "./ui/dot";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";

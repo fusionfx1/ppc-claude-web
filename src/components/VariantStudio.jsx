@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { THEME as T, COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants";
 import { uid, now, hsl } from "../utils";
 import { generateLP, makeThemeJson } from "../utils/lp-generator";
-import { Dot } from "./Atoms";
+import { Dot } from "./ui/dot";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { InputField as Inp } from "./ui/input-field";

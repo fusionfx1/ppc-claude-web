@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { THEME as T, REGISTRARS } from "../constants";
 import { uid, now } from "../utils";
-import { Dot } from "./Atoms";
+import { Dot } from "./ui/dot";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
