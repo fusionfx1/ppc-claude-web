@@ -835,7 +835,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Imported domains:</div>
                                         {imported.slice(0, 10).map((d, i) => (
                                             <div key={i} style={{ padding: "4px 8px", fontSize: 12, borderBottom: `1px solid ${T.border}` }}>
-                                                {typeof d === "string" ? d : d.domain} <Badge style={{ background: `${(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim}18`, color: (typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim, border: `1px solid ${(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim}44` }} style={{ float: "right" }}>{typeof d === "string" ? "ACTIVE" : d.status}</Badge>
+                                                {typeof d === "string" ? d : d.domain} <Badge style={{ float: "right", background: `${(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim}18`, color: (typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim, border: `1px solid ${(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim}44` }}>{typeof d === "string" ? "ACTIVE" : d.status}</Badge>
                                             </div>
                                         ))}
                                     </div>
