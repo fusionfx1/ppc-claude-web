@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { THEME as T } from "../constants";
-import { Card, Inp, Btn, Sel } from "./Atoms";
+import { Inp, Sel } from "./Atoms";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
 import { api } from "../services/api";
 import { multiloginApi } from "../services/multilogin";
 import { getCfApiBase } from "../utils/api-proxy";
@@ -292,467 +294,261 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
         }
     };
 
-    const labelStyle = { fontSize: 10, color: T.muted, display: "block", marginBottom: 2 };
-    const sectionHeaderStyle = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: T.dim, marginBottom: 12, marginTop: 20, paddingBottom: 6, borderBottom: `1px solid ${T.border}` };
+    const Lbl = ({ children }) => <label className="text-[10px] text-[hsl(var(--muted-foreground))] block mb-0.5">{children}</label>;
+    const SectionHeader = ({ children }) => <div className="text-[11px] font-bold uppercase tracking-[1px] text-[hsl(var(--muted-foreground))] mb-3 mt-5 pb-1.5 border-b border-[hsl(var(--border))]">{children}</div>;
 
     return (
-        <div style={{ maxWidth: 600, animation: "fadeIn .3s ease" }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>Settings</h1>
-            <p style={{ color: T.muted, fontSize: 12, marginBottom: 8 }}>API keys and deployment configuration</p>
-            {/* Connection Status */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                <div style={{ flex: 1, fontSize: 11, padding: "6px 10px", borderRadius: 6, background: neonOk ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: neonOk ? T.success : T.danger, border: `1px solid ${neonOk ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+        <div className="max-w-[600px] animate-[fadeIn_.3s_ease]">
+            <h1 className="text-[22px] font-bold m-0 mb-1">Settings</h1>
+            <p className="text-[hsl(var(--muted-foreground))] text-xs mb-2">API keys and deployment configuration</p>
+            <div className="flex gap-2 mb-4">
+                <div className={`flex-1 text-[11px] px-2.5 py-1.5 rounded-md border ${neonOk ? "bg-[rgba(16,185,129,0.1)] text-[hsl(var(--success))] border-[rgba(16,185,129,0.2)]" : "bg-[rgba(239,68,68,0.1)] text-[hsl(var(--destructive))] border-[rgba(239,68,68,0.2)]"}`}>
                     {neonOk ? "✓ Neon DB connected — primary data store" : "⚠ Neon DB offline"}
                 </div>
-                <div style={{ flex: 1, fontSize: 11, padding: "6px 10px", borderRadius: 6, background: apiOk ? "rgba(16,185,129,0.08)" : "rgba(100,100,100,0.1)", color: apiOk ? T.success : T.dim, border: `1px solid ${apiOk ? "rgba(16,185,129,0.15)" : "rgba(100,100,100,0.15)"}` }}>
+                <div className={`flex-1 text-[11px] px-2.5 py-1.5 rounded-md border ${apiOk ? "bg-[rgba(16,185,129,0.08)] text-[hsl(var(--success))] border-[rgba(16,185,129,0.15)]" : "bg-[rgba(100,100,100,0.1)] text-[hsl(var(--muted-foreground))] border-[rgba(100,100,100,0.15)]"}`}>
                     {apiOk ? "✓ Legacy API" : "— Legacy API offline"}
                 </div>
             </div>
 
-            {/* ══════════════ DATABASE ══════════════ */}
-            <div style={sectionHeaderStyle}>🗄️ Database</div>
+            <SectionHeader>🗄️ Database</SectionHeader>
 
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>Neon Postgres</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Serverless Postgres for persistent storage (settings, sites, deploys)</p>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Connection String (pooler)</label>
-                    <Inp type="password" value={neonUrl} onChange={setNeonUrl} placeholder="postgresql://user:pass@ep-xxx.us-west-2.aws.neon.tech/neondb?sslmode=require" />
-                </div>
-                {neonOk && <div style={{ fontSize: 11, color: T.success, marginBottom: 8 }}>✓ Connected to Neon</div>}
-                <Btn onClick={() => save({ neonUrl })} disabled={saving || !neonUrl} style={{ fontSize: 12 }}>{saving ? "Connecting..." : "💾 Save & Connect"}</Btn>
+            <Card className="mb-4">
+                <CardHeader><CardTitle>Neon Postgres</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Serverless Postgres for persistent storage (settings, sites, deploys)</p>
+                    <div><Lbl>Connection String (pooler)</Lbl><Inp type="password" value={neonUrl} onChange={setNeonUrl} placeholder="postgresql://user:pass@ep-xxx.us-west-2.aws.neon.tech/neondb?sslmode=require" /></div>
+                    {neonOk && <div className="text-[11px] text-[hsl(var(--success))]">✓ Connected to Neon</div>}
+                    <Button onClick={() => save({ neonUrl })} disabled={saving || !neonUrl} className="text-xs self-start">{saving ? "Connecting..." : "💾 Save & Connect"}</Button>
+                </CardContent>
             </Card>
 
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>☁️ Cloudflare D1 Database</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Edge SQL database for low-latency queries</p>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Account ID {d1AccountId && (
-                        /^[0-9a-f]{32}$/i.test(d1AccountId.trim())
-                            ? <span style={{ color: T.success, fontSize: 10 }}>✓ {d1AccountId.trim().length} chars</span>
-                            : <span style={{ color: T.danger, fontSize: 10 }}>✗ {d1AccountId.trim().length}/32 chars</span>
-                    )}</label>
-                    <Inp value={d1AccountId} onChange={setD1AccountId} placeholder="32-char hex account ID" />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Database ID (UUID)</label>
-                    <Inp value={d1DatabaseId} onChange={setD1DatabaseId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>API Token</label>
-                    <Inp type="password" value={d1ApiToken} onChange={setD1ApiToken} placeholder="Cloudflare API Token with D1 permissions" />
-                </div>
-                {d1Result && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: d1Result.success ? T.success : T.danger }}>
-                        <div>
-                            {d1Result.success
-                                ? `✓ Connected${d1Result.database ? ` to "${d1Result.database.name}"` : d1Result.count !== undefined ? ` (${d1Result.count} databases)` : ""}`
-                                : `✗ ${d1Result.error}`}
-                        </div>
-                        {!d1Result.success && d1Result.url && (
-                            <div style={{ marginTop: 4, fontSize: 10, color: T.dim, fontFamily: "monospace", wordBreak: "break-all" }}>
-                                URL: {d1Result.url}
-                            </div>
-                        )}
-                        {!d1Result.success && d1Result.detail && (
-                            <div style={{ marginTop: 2, fontSize: 10, color: T.dim, fontFamily: "monospace", wordBreak: "break-all" }}>
-                                Detail: {d1Result.detail}
-                            </div>
-                        )}
-                    </div>
-                )}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testD1} disabled={!d1AccountId || !d1ApiToken || testing === "d1"} style={{ fontSize: 12 }}>{testing === "d1" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => {
-                        const cleanId = d1AccountId.trim();
-                        if (cleanId && !/^[0-9a-f]{32}$/i.test(cleanId)) {
-                            setD1Result({ success: false, error: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` });
-                            return;
-                        }
-                        save({ d1AccountId: cleanId, d1DatabaseId, d1ApiToken });
-                    }} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* ══════════════ AI PROVIDERS ══════════════ */}
-            <div style={sectionHeaderStyle}>🤖 AI Providers</div>
-
-            {/* AI Provider - Anthropic */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>Anthropic API Key</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>For AI copy generation</p>
-                <Inp type="password" value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." style={{ marginBottom: 8 }} />
-                {settings.apiKey && <div style={{ fontSize: 11, color: T.success, marginBottom: 8 }}>✓ Configured</div>}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testApi} disabled={!apiKey || testing === "api"} style={{ fontSize: 12 }}>{testing === "api" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => save({ apiKey })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* AI Provider - Gemini */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>Gemini API Key</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>For advanced text and image prompting</p>
-                <Inp type="password" value={geminiKey} onChange={setGeminiKey} placeholder="AIza..." style={{ marginBottom: 8 }} />
-                <Btn onClick={() => save({ geminiKey })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-            </Card>
-
-            {/* ══════════════ DEPLOY TARGETS ══════════════ */}
-            <div style={sectionHeaderStyle}>🚀 Deploy Targets</div>
-
-            {/* P1 + P4: Cloudflare (Pages + Workers Sites) */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>☁️ Cloudflare</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Shared by CF Pages (P1) and CF Workers Sites (P4)</p>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>API Token</label>
-                    <Inp type="password" value={cfApiToken} onChange={setCfApiToken} placeholder="Bearer token with Pages/Workers edit..." />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Account ID {cfAccountId && (
-                        /^[0-9a-f]{32}$/i.test(cfAccountId.trim())
-                            ? <span style={{ color: T.success, fontSize: 10 }}>✓ {cfAccountId.trim().length} chars</span>
-                            : <span style={{ color: T.danger, fontSize: 10 }}>✗ {cfAccountId.trim().length}/32 chars</span>
-                    )}</label>
-                    <Inp value={cfAccountId} onChange={setCfAccountId} placeholder="32-char hex account ID"
-                        style={cfAccountId && !/^[0-9a-f]{32}$/i.test(cfAccountId.trim()) ? { borderColor: T.danger } : undefined} />
-                </div>
-                {testResult.cf && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.cf === "ok" ? T.success : testResult.cf === "partial" ? T.warning : T.danger }}>
-                        {testResult.cf === "ok" ? "✓ Pages + Workers OK" :
-                         testResult.cf === "partial" ? "⚠ Partial — " :
-                         "✗ Failed — "}
-                        {testResult.cfDetail && <span style={{ fontFamily: "monospace", fontSize: 10 }}>{testResult.cfDetail}</span>}
-                    </div>
-                )}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testCf} disabled={!cfApiToken || !cfAccountId || testing === "cf"} style={{ fontSize: 12 }}>{testing === "cf" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => {
-                        const cleanId = cfAccountId.trim();
-                        if (cleanId && !/^[0-9a-f]{32}$/i.test(cleanId)) {
-                            setTestResult(p => ({ ...p, cf: "fail", cfDetail: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` }));
-                            return;
-                        }
-                        save({ cfApiToken, cfAccountId: cleanId });
-                    }} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* P2: Netlify Deploy Token */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>🔺 Netlify</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Backup deploy — diversify footprint (P2)</p>
-                <Inp type="password" value={netlifyToken} onChange={setNetlifyToken} placeholder="nfp_..." style={{ marginBottom: 8 }} />
-                <Inp value={netlifyTeamSlug} onChange={setNetlifyTeamSlug} placeholder="Team slug (optional) e.g. my-agency" style={{ marginBottom: 8 }} />
-                {settings.netlifyToken && <div style={{ fontSize: 11, color: T.success, marginBottom: 8 }}>✓ Configured</div>}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testNetlify} disabled={!netlifyToken || testing === "netlify"} style={{ fontSize: 12 }}>{testing === "netlify" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => save({ netlifyToken, netlifyTeamSlug })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* P3: Vercel Deploy Token */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>▲ Vercel</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Fast edge deployments with preview support (P3)</p>
-                <Inp type="password" value={vercelToken} onChange={setVercelToken} placeholder="vercel_..." style={{ marginBottom: 8 }} />
-                {settings.vercelToken && <div style={{ fontSize: 11, color: T.success, marginBottom: 8 }}>✓ Configured</div>}
-                <Btn onClick={() => save({ vercelToken })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-            </Card>
-
-            {/* P5: AWS S3 + CloudFront */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>🪣 AWS S3 + CloudFront</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>US-focused LP, low latency (P5)</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Access Key ID</label>
-                        <Inp type="password" value={awsAccessKey} onChange={setAwsAccessKey} placeholder="AKIA..." />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Secret Access Key</label>
-                        <Inp type="password" value={awsSecretKey} onChange={setAwsSecretKey} placeholder="••••••••" />
-                    </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Region</label>
-                        <Sel value={awsRegion} onChange={setAwsRegion} options={[
-                            { value: "us-east-1", label: "US East (N. Virginia)" },
-                            { value: "us-east-2", label: "US East (Ohio)" },
-                            { value: "us-west-1", label: "US West (N. California)" },
-                            { value: "us-west-2", label: "US West (Oregon)" },
-                            { value: "eu-west-1", label: "EU (Ireland)" },
-                            { value: "eu-central-1", label: "EU (Frankfurt)" },
-                            { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
-                        ]} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>S3 Bucket Name</label>
-                        <Inp value={s3Bucket} onChange={setS3Bucket} placeholder="my-lp-bucket" />
-                    </div>
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>CloudFront Distribution ID (optional)</label>
-                    <Inp value={cloudfrontDistId} onChange={setCloudfrontDistId} placeholder="E1234ABCDEF" />
-                </div>
-                {testResult.aws && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.aws === "fail" ? T.danger : T.success }}>
-                        {testResult.aws === "ok" ? "✓ Bucket accessible" : testResult.aws === "cors" ? "⚠ Bucket exists (CORS limited)" : "✗ Failed"}
-                    </div>
-                )}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testAws} disabled={!s3Bucket || testing === "aws"} style={{ fontSize: 12 }}>{testing === "aws" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => save({ awsAccessKey, awsSecretKey, awsRegion, s3Bucket, cloudfrontDistId })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* P6: VPS via SSH */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>🖥️ VPS (SSH/rsync)</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Self-managed server, full control (P6). Requires Worker proxy.</p>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Host</label>
-                        <Inp value={vpsHost} onChange={setVpsHost} placeholder="123.45.67.89" />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Port</label>
-                        <Inp value={vpsPort} onChange={setVpsPort} placeholder="22" />
-                    </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Username</label>
-                        <Inp value={vpsUser} onChange={setVpsUser} placeholder="deploy" />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Remote Path</label>
-                        <Inp value={vpsPath} onChange={setVpsPath} placeholder="/var/www/html/" />
-                    </div>
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Auth Method</label>
-                    <Sel value={vpsAuthMethod} onChange={setVpsAuthMethod} options={[
-                        { value: "key", label: "SSH Key" },
-                        { value: "password", label: "Password" },
-                    ]} />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>{vpsAuthMethod === "key" ? "Private Key" : "Password"}</label>
-                    <Inp type="password" value={vpsKey} onChange={setVpsKey} placeholder={vpsAuthMethod === "key" ? "-----BEGIN OPENSSH PRIVATE KEY-----" : "••••••••"} />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Worker Proxy URL</label>
-                    <Inp value={vpsWorkerUrl} onChange={setVpsWorkerUrl} placeholder="https://your-worker.workers.dev" />
-                </div>
-                <Btn onClick={() => save({ vpsHost, vpsPort, vpsUser, vpsPath, vpsAuthMethod, vpsKey, vpsWorkerUrl })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save VPS Config"}</Btn>
-            </Card>
-
-            {/* P7: Git Push Pipeline */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>🧬 Git Push Pipeline</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>Commit artifacts to GitHub, then let Actions deploy to targets</p>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>GitHub Token (repo scope)</label>
-                    <Inp type="password" value={githubToken} onChange={setGithubToken} placeholder="ghp_..." />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Repo Owner</label>
-                        <Inp value={githubRepoOwner} onChange={setGithubRepoOwner} placeholder="org-or-user" />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Repo Name</label>
-                        <Inp value={githubRepoName} onChange={setGithubRepoName} placeholder="repo-name" />
-                    </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Branch</label>
-                        <Inp value={githubRepoBranch} onChange={setGithubRepoBranch} placeholder="main" />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Workflow File</label>
-                        <Inp value={githubDeployWorkflow} onChange={setGithubDeployWorkflow} placeholder="deploy-sites.yml" />
-                    </div>
-                </div>
-                {testResult.github && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.github === "ok" ? T.success : T.danger }}>
-                        {testResult.github === "ok" ? "✓ GitHub repo accessible" : "✗ GitHub check failed"}
-                        {testResult.githubDetail && (
-                            <span style={{ fontFamily: "monospace", fontSize: 10 }}> — {testResult.githubDetail}</span>
-                        )}
-                    </div>
-                )}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testGitHub} disabled={!githubToken || !githubRepoOwner || !githubRepoName || testing === "github"} style={{ fontSize: 12 }}>{testing === "github" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => save({ githubToken, githubRepoOwner, githubRepoName, githubRepoBranch, githubDeployWorkflow })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* ══════════════ EXTERNAL SERVICES ══════════════ */}
-            <div style={sectionHeaderStyle}>🔗 External Services</div>
-
-            {/* LeadingCards API */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>LeadingCards API</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 12px" }}>For automated card management</p>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Token</label>
-                    <Inp type="password" value={lcToken} onChange={setLcToken} placeholder="b2f..." />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Team UUID</label>
-                    <Inp value={lcTeamUuid} onChange={setLcTeamUuid} placeholder="Optional for Team Members" />
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Default BIN UUID</label>
-                    <Inp value={defaultBinUuid} onChange={setDefaultBinUuid} placeholder="BIN UUID for card issuance" />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                    <label style={labelStyle}>Default Billing Address UUID</label>
-                    <Inp value={defaultBillingUuid} onChange={setDefaultBillingUuid} placeholder="Billing address UUID" />
-                </div>
-                {testResult.lc && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.lc === "ok" ? T.success : T.danger }}>
-                        {testResult.lc === "ok" ? "✓ Connected" : "✗ Failed"}
-                    </div>
-                )}
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="ghost" onClick={testLc} disabled={!lcToken || testing === "lc"} style={{ fontSize: 12 }}>{testing === "lc" ? "..." : "🔑 Test"}</Btn>
-                    <Btn onClick={() => save({ lcToken, lcTeamUuid, defaultBinUuid, defaultBillingUuid })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
-            </Card>
-
-            {/* Multilogin X */}
-            <Card style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>Multilogin X</h3>
-                <p style={{ fontSize: 11, color: T.dim, margin: "0 0 8px" }}>
-                    Direct API integration — <a href="https://multilogin.com/help/en_US/api" target="_blank" rel="noopener" style={{ color: T.accent }}>docs</a>
-                </p>
-                <div style={{ fontSize: 10, color: T.muted, marginBottom: 12, padding: "6px 8px", background: "rgba(99,102,241,0.06)", borderRadius: 6, border: `1px solid rgba(99,102,241,0.12)` }}>
-                    Remote API: <code style={{ fontSize: 10 }}>{multiloginApi.MLX_BASE || "https://api.multilogin.com"}</code> &nbsp;|&nbsp;
-                    Launcher: <code style={{ fontSize: 10 }}>{multiloginApi.LAUNCHER_BASE || "https://launcher.mlx.yt:45001"}</code>
-                </div>
-
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Automation Token (Recommended — lasts up to 30 days)</label>
-                    <Inp type="password" value={mlToken} onChange={setMlToken} placeholder="Bearer token from MLX or generate below..." />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                        <label style={labelStyle}>Login Email</label>
-                        <Inp value={mlEmail} onChange={setMlEmail} placeholder="user@multilogin.com" />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Password (hashed via MD5 per MLX spec)</label>
-                        <Inp type="password" value={mlPassword} onChange={setMlPassword} placeholder="••••••••" />
-                    </div>
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                    <label style={labelStyle}>Default Folder ID</label>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <Inp value={mlFolderId} onChange={setMlFolderId} placeholder="Folder ID for browser profiles" style={{ flex: 1 }} />
-                        <Btn variant="ghost" onClick={async () => {
-                            setLoadingFolders(true);
-                            try {
-                                if (mlToken) multiloginApi.setToken(mlToken);
-                                const res = await multiloginApi.getFolders();
-                                const fdata = res.data?.folders || res.data || [];
-                                setFolders(Array.isArray(fdata) ? fdata : []);
-                            } catch (e) {
-                                console.warn("[Settings] Failed to load folders:", e?.message || e);
-                                setFolders([]);
-                            }
-                            setLoadingFolders(false);
-                        }} disabled={loadingFolders || (!mlToken && !mlEmail)} style={{ fontSize: 11, whiteSpace: "nowrap" }}>
-                            {loadingFolders ? "..." : "📂 Browse"}
-                        </Btn>
-                    </div>
-                    {folders && (
-                        <div style={{ marginTop: 6, background: T.input, border: `1px solid ${T.border}`, borderRadius: 6, padding: 8, maxHeight: 160, overflowY: "auto" }}>
-                            {folders.length === 0 ? (
-                                <div style={{ fontSize: 11, color: T.muted }}>No folders found. Check your token or sign in first.</div>
-                            ) : folders.map(f => (
-                                <div key={f.folder_id || f.id} onClick={() => { setMlFolderId(f.folder_id || f.id); setFolders(null); }}
-                                    style={{ padding: "6px 8px", cursor: "pointer", borderRadius: 4, fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                                    onMouseEnter={e => e.currentTarget.style.background = T.border}
-                                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                                    <span style={{ fontWeight: 500 }}>{f.name || "Unnamed"}</span>
-                                    <span style={{ fontSize: 10, color: T.muted, fontFamily: "monospace" }}>{(f.folder_id || f.id || "").slice(0, 12)}...</span>
-                                </div>
-                            ))}
+            <Card className="mb-4">
+                <CardHeader><CardTitle>☁️ Cloudflare D1 Database</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Edge SQL database for low-latency queries</p>
+                    <div><Lbl>Account ID {d1AccountId && (/^[0-9a-f]{32}$/i.test(d1AccountId.trim()) ? <span className="text-[hsl(var(--success))] text-[10px]">✓ {d1AccountId.trim().length} chars</span> : <span className="text-[hsl(var(--destructive))] text-[10px]">✗ {d1AccountId.trim().length}/32 chars</span>)}</Lbl><Inp value={d1AccountId} onChange={setD1AccountId} placeholder="32-char hex account ID" /></div>
+                    <div><Lbl>Database ID (UUID)</Lbl><Inp value={d1DatabaseId} onChange={setD1DatabaseId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></div>
+                    <div><Lbl>API Token</Lbl><Inp type="password" value={d1ApiToken} onChange={setD1ApiToken} placeholder="Cloudflare API Token with D1 permissions" /></div>
+                    {d1Result && (
+                        <div className={`text-[11px] ${d1Result.success ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]"}`}>
+                            <div>{d1Result.success ? `✓ Connected${d1Result.database ? ` to "${d1Result.database.name}"` : d1Result.count !== undefined ? ` (${d1Result.count} databases)` : ""}` : `✗ ${d1Result.error}`}</div>
+                            {!d1Result.success && d1Result.url && <div className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] font-mono break-all">URL: {d1Result.url}</div>}
+                            {!d1Result.success && d1Result.detail && <div className="mt-0.5 text-[10px] text-[hsl(var(--muted-foreground))] font-mono break-all">Detail: {d1Result.detail}</div>}
                         </div>
                     )}
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                    <label style={labelStyle}>Default Proxy Provider</label>
-                    <Sel value={defaultProxyProvider} onChange={setDefaultProxyProvider} options={[
-                        { value: "multilogin", label: "Multilogin" },
-                        { value: "custom", label: "Custom" },
-                    ]} />
-                </div>
-                {testResult.ml && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: testResult.ml === "fail" || testResult.ml === "expired" || testResult.ml === "no-creds" ? T.danger : T.success }}>
-                        {testResult.ml === "ok" ? "✓ Signed In — token acquired" :
-                         testResult.ml === "active" ? "✓ Token Valid — API connected" :
-                         testResult.ml === "expired" ? "✗ Token Expired — sign in or generate new" :
-                         testResult.ml === "no-creds" ? "✗ Enter token or email/password" :
-                         "✗ Connection Failed — check credentials"}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testD1} disabled={!d1AccountId || !d1ApiToken || testing === "d1"} className="text-xs">{ testing === "d1" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => { const cleanId = d1AccountId.trim(); if (cleanId && !/^[0-9a-f]{32}$/i.test(cleanId)) { setD1Result({ success: false, error: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` }); return; } save({ d1AccountId: cleanId, d1DatabaseId, d1ApiToken }); }} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
                     </div>
-                )}
-                {/* Launcher status */}
-                {launcherOk !== null && (
-                    <div style={{ fontSize: 11, marginBottom: 8, color: launcherOk ? T.success : T.dim }}>
-                        {launcherOk ? "✓ Local Launcher detected" : "— Launcher not detected (needed for start/stop)"}
-                    </div>
-                )}
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <Btn variant="ghost" onClick={testMl} disabled={testing === "ml"} style={{ fontSize: 12 }}>{testing === "ml" ? "..." : "🔑 Test / Sign In"}</Btn>
-                    <Btn variant="ghost" onClick={async () => {
-                        setGeneratingToken(true);
-                        try {
-                            // Sign in first if no token
-                            if (!mlToken && mlEmail && mlPassword) {
-                                const sr = await multiloginApi.signin(mlEmail, mlPassword);
-                                if (sr.data?.token) multiloginApi.setToken(sr.data.token);
-                            } else if (mlToken) {
-                                multiloginApi.setToken(mlToken);
-                            }
-                            const res = await multiloginApi.getAutomationToken("30d");
-                            if (res.data?.token) {
-                                setMlToken(res.data.token);
-                                setTestResult(p => ({ ...p, ml: "ok" }));
-                            } else {
-                                setTestResult(p => ({ ...p, ml: "fail" }));
-                            }
-                        } catch (e) {
-                            console.warn("[Settings] Auto token generation failed:", e?.message || e);
-                            setTestResult(p => ({ ...p, ml: "fail" }));
-                        }
-                        setGeneratingToken(false);
-                    }} disabled={(!mlToken && !mlEmail) || generatingToken} style={{ fontSize: 12 }}>
-                        {generatingToken ? "..." : "🔑 Generate 30-day Token"}
-                    </Btn>
-                    <Btn variant="ghost" onClick={async () => {
-                        const res = await multiloginApi.checkLauncher();
-                        setLauncherOk(!res.error);
-                    }} style={{ fontSize: 12 }}>🖥️ Check Launcher</Btn>
-                    <Btn onClick={() => save({ mlToken, mlEmail, mlPassword, mlFolderId, defaultProxyProvider })} disabled={saving} style={{ fontSize: 12 }}>{saving ? "Saving..." : "💾 Save"}</Btn>
-                </div>
+                </CardContent>
             </Card>
 
-            {/* ══════════════ BUILD STATS ══════════════ */}
-            <div style={sectionHeaderStyle}>📊 Stats</div>
+            <SectionHeader>🤖 AI Providers</SectionHeader>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>Anthropic API Key</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">For AI copy generation</p>
+                    <Inp type="password" value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." />
+                    {settings.apiKey && <div className="text-[11px] text-[hsl(var(--success))]">✓ Configured</div>}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testApi} disabled={!apiKey || testing === "api"} className="text-xs">{testing === "api" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => save({ apiKey })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>Gemini API Key</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">For advanced text and image prompting</p>
+                    <Inp type="password" value={geminiKey} onChange={setGeminiKey} placeholder="AIza..." />
+                    <Button onClick={() => save({ geminiKey })} disabled={saving} className="text-xs self-start">{saving ? "Saving..." : "💾 Save"}</Button>
+                </CardContent>
+            </Card>
+
+            <SectionHeader>🚀 Deploy Targets</SectionHeader>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>☁️ Cloudflare</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Shared by CF Pages (P1) and CF Workers Sites (P4)</p>
+                    <div><Lbl>API Token</Lbl><Inp type="password" value={cfApiToken} onChange={setCfApiToken} placeholder="Bearer token with Pages/Workers edit..." /></div>
+                    <div><Lbl>Account ID {cfAccountId && (/^[0-9a-f]{32}$/i.test(cfAccountId.trim()) ? <span className="text-[hsl(var(--success))] text-[10px]">✓ {cfAccountId.trim().length} chars</span> : <span className="text-[hsl(var(--destructive))] text-[10px]">✗ {cfAccountId.trim().length}/32 chars</span>)}</Lbl><Inp value={cfAccountId} onChange={setCfAccountId} placeholder="32-char hex account ID" style={cfAccountId && !/^[0-9a-f]{32}$/i.test(cfAccountId.trim()) ? { borderColor: T.danger } : undefined} /></div>
+                    {testResult.cf && (<div className={`text-[11px] ${testResult.cf === "ok" ? "text-[hsl(var(--success))]" : testResult.cf === "partial" ? "text-[hsl(var(--warning))]" : "text-[hsl(var(--destructive))]"}`}>{testResult.cf === "ok" ? "✓ Pages + Workers OK" : testResult.cf === "partial" ? "⚠ Partial — " : "✗ Failed — "}{testResult.cfDetail && <span className="font-mono text-[10px]">{testResult.cfDetail}</span>}</div>)}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testCf} disabled={!cfApiToken || !cfAccountId || testing === "cf"} className="text-xs">{testing === "cf" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => { const cleanId = cfAccountId.trim(); if (cleanId && !/^[0-9a-f]{32}$/i.test(cleanId)) { setTestResult(p => ({ ...p, cf: "fail", cfDetail: `Account ID must be exactly 32 hex characters (got ${cleanId.length})` })); return; } save({ cfApiToken, cfAccountId: cleanId }); }} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>🔺 Netlify</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Backup deploy — diversify footprint (P2)</p>
+                    <Inp type="password" value={netlifyToken} onChange={setNetlifyToken} placeholder="nfp_..." />
+                    <Inp value={netlifyTeamSlug} onChange={setNetlifyTeamSlug} placeholder="Team slug (optional) e.g. my-agency" />
+                    {settings.netlifyToken && <div className="text-[11px] text-[hsl(var(--success))]">✓ Configured</div>}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testNetlify} disabled={!netlifyToken || testing === "netlify"} className="text-xs">{testing === "netlify" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => save({ netlifyToken, netlifyTeamSlug })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>▲ Vercel</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Fast edge deployments with preview support (P3)</p>
+                    <Inp type="password" value={vercelToken} onChange={setVercelToken} placeholder="vercel_..." />
+                    {settings.vercelToken && <div className="text-[11px] text-[hsl(var(--success))]">✓ Configured</div>}
+                    <Button onClick={() => save({ vercelToken })} disabled={saving} className="text-xs self-start">{saving ? "Saving..." : "💾 Save"}</Button>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>🪣 AWS S3 + CloudFront</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">US-focused LP, low latency (P5)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Access Key ID</Lbl><Inp type="password" value={awsAccessKey} onChange={setAwsAccessKey} placeholder="AKIA..." /></div>
+                        <div><Lbl>Secret Access Key</Lbl><Inp type="password" value={awsSecretKey} onChange={setAwsSecretKey} placeholder="••••••••" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Region</Lbl><Sel value={awsRegion} onChange={setAwsRegion} options={[{value:"us-east-1",label:"US East (N. Virginia)"},{value:"us-east-2",label:"US East (Ohio)"},{value:"us-west-1",label:"US West (N. California)"},{value:"us-west-2",label:"US West (Oregon)"},{value:"eu-west-1",label:"EU (Ireland)"},{value:"eu-central-1",label:"EU (Frankfurt)"},{value:"ap-southeast-1",label:"Asia Pacific (Singapore)"}]} /></div>
+                        <div><Lbl>S3 Bucket Name</Lbl><Inp value={s3Bucket} onChange={setS3Bucket} placeholder="my-lp-bucket" /></div>
+                    </div>
+                    <div><Lbl>CloudFront Distribution ID (optional)</Lbl><Inp value={cloudfrontDistId} onChange={setCloudfrontDistId} placeholder="E1234ABCDEF" /></div>
+                    {testResult.aws && <div className={`text-[11px] ${testResult.aws === "fail" ? "text-[hsl(var(--destructive))]" : "text-[hsl(var(--success))]"}`}>{testResult.aws === "ok" ? "✓ Bucket accessible" : testResult.aws === "cors" ? "⚠ Bucket exists (CORS limited)" : "✗ Failed"}</div>}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testAws} disabled={!s3Bucket || testing === "aws"} className="text-xs">{testing === "aws" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => save({ awsAccessKey, awsSecretKey, awsRegion, s3Bucket, cloudfrontDistId })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>🖥️ VPS (SSH/rsync)</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Self-managed server, full control (P6). Requires Worker proxy.</p>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: "2fr 1fr" }}>
+                        <div><Lbl>Host</Lbl><Inp value={vpsHost} onChange={setVpsHost} placeholder="123.45.67.89" /></div>
+                        <div><Lbl>Port</Lbl><Inp value={vpsPort} onChange={setVpsPort} placeholder="22" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Username</Lbl><Inp value={vpsUser} onChange={setVpsUser} placeholder="deploy" /></div>
+                        <div><Lbl>Remote Path</Lbl><Inp value={vpsPath} onChange={setVpsPath} placeholder="/var/www/html/" /></div>
+                    </div>
+                    <div><Lbl>Auth Method</Lbl><Sel value={vpsAuthMethod} onChange={setVpsAuthMethod} options={[{value:"key",label:"SSH Key"},{value:"password",label:"Password"}]} /></div>
+                    <div><Lbl>{vpsAuthMethod === "key" ? "Private Key" : "Password"}</Lbl><Inp type="password" value={vpsKey} onChange={setVpsKey} placeholder={vpsAuthMethod === "key" ? "-----BEGIN OPENSSH PRIVATE KEY-----" : "••••••••"} /></div>
+                    <div><Lbl>Worker Proxy URL</Lbl><Inp value={vpsWorkerUrl} onChange={setVpsWorkerUrl} placeholder="https://your-worker.workers.dev" /></div>
+                    <Button onClick={() => save({ vpsHost, vpsPort, vpsUser, vpsPath, vpsAuthMethod, vpsKey, vpsWorkerUrl })} disabled={saving} className="text-xs self-start">{saving ? "Saving..." : "💾 Save VPS Config"}</Button>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>🧬 Git Push Pipeline</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">Commit artifacts to GitHub, then let Actions deploy to targets</p>
+                    <div><Lbl>GitHub Token (repo scope)</Lbl><Inp type="password" value={githubToken} onChange={setGithubToken} placeholder="ghp_..." /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Repo Owner</Lbl><Inp value={githubRepoOwner} onChange={setGithubRepoOwner} placeholder="org-or-user" /></div>
+                        <div><Lbl>Repo Name</Lbl><Inp value={githubRepoName} onChange={setGithubRepoName} placeholder="repo-name" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Branch</Lbl><Inp value={githubRepoBranch} onChange={setGithubRepoBranch} placeholder="main" /></div>
+                        <div><Lbl>Workflow File</Lbl><Inp value={githubDeployWorkflow} onChange={setGithubDeployWorkflow} placeholder="deploy-sites.yml" /></div>
+                    </div>
+                    {testResult.github && (
+                        <div className={`text-[11px] ${testResult.github === "ok" ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]"}`}>
+                            {testResult.github === "ok" ? "✓ GitHub repo accessible" : "✗ GitHub check failed"}
+                            {testResult.githubDetail && <span className="font-mono text-[10px]"> — {testResult.githubDetail}</span>}
+                        </div>
+                    )}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testGitHub} disabled={!githubToken || !githubRepoOwner || !githubRepoName || testing === "github"} className="text-xs">{testing === "github" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => save({ githubToken, githubRepoOwner, githubRepoName, githubRepoBranch, githubDeployWorkflow })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <SectionHeader>🔗 External Services</SectionHeader>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>LeadingCards API</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2 mb-1">For automated card management</p>
+                    <div><Lbl>Token</Lbl><Inp type="password" value={lcToken} onChange={setLcToken} placeholder="b2f..." /></div>
+                    <div><Lbl>Team UUID</Lbl><Inp value={lcTeamUuid} onChange={setLcTeamUuid} placeholder="Optional for Team Members" /></div>
+                    <div><Lbl>Default BIN UUID</Lbl><Inp value={defaultBinUuid} onChange={setDefaultBinUuid} placeholder="BIN UUID for card issuance" /></div>
+                    <div><Lbl>Default Billing Address UUID</Lbl><Inp value={defaultBillingUuid} onChange={setDefaultBillingUuid} placeholder="Billing address UUID" /></div>
+                    {testResult.lc && <div className={`text-[11px] ${testResult.lc === "ok" ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]"}`}>{testResult.lc === "ok" ? "✓ Connected" : "✗ Failed"}</div>}
+                    <div className="flex gap-1.5">
+                        <Button variant="ghost" onClick={testLc} disabled={!lcToken || testing === "lc"} className="text-xs">{testing === "lc" ? "..." : "🔑 Test"}</Button>
+                        <Button onClick={() => save({ lcToken, lcTeamUuid, defaultBinUuid, defaultBillingUuid })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4">
+                <CardHeader><CardTitle>Multilogin X</CardTitle></CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[hsl(var(--muted-foreground))] -mt-2">
+                        Direct API integration — <a href="https://multilogin.com/help/en_US/api" target="_blank" rel="noopener" className="text-[hsl(var(--accent))]">docs</a>
+                    </p>
+                    <div className="text-[10px] text-[hsl(var(--muted-foreground))] px-2 py-1.5 bg-[rgba(99,102,241,0.06)] rounded-md border border-[rgba(99,102,241,0.12)]">
+                        Remote API: <code className="text-[10px]">{multiloginApi.MLX_BASE || "https://api.multilogin.com"}</code> &nbsp;|&nbsp;
+                        Launcher: <code className="text-[10px]">{multiloginApi.LAUNCHER_BASE || "https://launcher.mlx.yt:45001"}</code>
+                    </div>
+                    <div><Lbl>Automation Token (Recommended — lasts up to 30 days)</Lbl><Inp type="password" value={mlToken} onChange={setMlToken} placeholder="Bearer token from MLX or generate below..." /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Login Email</Lbl><Inp value={mlEmail} onChange={setMlEmail} placeholder="user@multilogin.com" /></div>
+                        <div><Lbl>Password (hashed via MD5 per MLX spec)</Lbl><Inp type="password" value={mlPassword} onChange={setMlPassword} placeholder="••••••••" /></div>
+                    </div>
+                    <div>
+                        <Lbl>Default Folder ID</Lbl>
+                        <div className="flex gap-1.5 items-center">
+                            <Inp value={mlFolderId} onChange={setMlFolderId} placeholder="Folder ID for browser profiles" style={{ flex: 1 }} />
+                            <Button variant="ghost" onClick={async () => { setLoadingFolders(true); try { if (mlToken) multiloginApi.setToken(mlToken); const res = await multiloginApi.getFolders(); const fdata = res.data?.folders || res.data || []; setFolders(Array.isArray(fdata) ? fdata : []); } catch (e) { console.warn("[Settings] Failed to load folders:", e?.message || e); setFolders([]); } setLoadingFolders(false); }} disabled={loadingFolders || (!mlToken && !mlEmail)} className="text-[11px] whitespace-nowrap">{loadingFolders ? "..." : "📂 Browse"}</Button>
+                        </div>
+                        {folders && (
+                            <div className="mt-1.5 bg-[hsl(var(--input))] border border-[hsl(var(--border))] rounded-md p-2 max-h-40 overflow-y-auto">
+                                {folders.length === 0 ? (
+                                    <div className="text-[11px] text-[hsl(var(--muted-foreground))]">No folders found. Check your token or sign in first.</div>
+                                ) : folders.map(f => (
+                                    <div key={f.folder_id || f.id} onClick={() => { setMlFolderId(f.folder_id || f.id); setFolders(null); }}
+                                        className="px-2 py-1.5 cursor-pointer rounded text-xs flex justify-between items-center hover:bg-[hsl(var(--border))]">
+                                        <span className="font-medium">{f.name || "Unnamed"}</span>
+                                        <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">{(f.folder_id || f.id || "").slice(0, 12)}...</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div><Lbl>Default Proxy Provider</Lbl><Sel value={defaultProxyProvider} onChange={setDefaultProxyProvider} options={[{value:"multilogin",label:"Multilogin"},{value:"custom",label:"Custom"}]} /></div>
+                    {testResult.ml && <div className={`text-[11px] ${["fail","expired","no-creds"].includes(testResult.ml) ? "text-[hsl(var(--destructive))]" : "text-[hsl(var(--success))]"}`}>{testResult.ml === "ok" ? "✓ Signed In — token acquired" : testResult.ml === "active" ? "✓ Token Valid — API connected" : testResult.ml === "expired" ? "✗ Token Expired — sign in or generate new" : testResult.ml === "no-creds" ? "✗ Enter token or email/password" : "✗ Connection Failed — check credentials"}</div>}
+                    {launcherOk !== null && <div className={`text-[11px] ${launcherOk ? "text-[hsl(var(--success))]" : "text-[hsl(var(--muted-foreground))]"}`}>{launcherOk ? "✓ Local Launcher detected" : "— Launcher not detected (needed for start/stop)"}</div>}
+                    <div className="flex gap-1.5 flex-wrap">
+                        <Button variant="ghost" onClick={testMl} disabled={testing === "ml"} className="text-xs">{testing === "ml" ? "..." : "🔑 Test / Sign In"}</Button>
+                        <Button variant="ghost" onClick={async () => { setGeneratingToken(true); try { if (!mlToken && mlEmail && mlPassword) { const sr = await multiloginApi.signin(mlEmail, mlPassword); if (sr.data?.token) multiloginApi.setToken(sr.data.token); } else if (mlToken) { multiloginApi.setToken(mlToken); } const res = await multiloginApi.getAutomationToken("30d"); if (res.data?.token) { setMlToken(res.data.token); setTestResult(p => ({ ...p, ml: "ok" })); } else { setTestResult(p => ({ ...p, ml: "fail" })); } } catch (e) { console.warn("[Settings] Auto token generation failed:", e?.message || e); setTestResult(p => ({ ...p, ml: "fail" })); } setGeneratingToken(false); }} disabled={(!mlToken && !mlEmail) || generatingToken} className="text-xs">{generatingToken ? "..." : "🔑 Generate 30-day Token"}</Button>
+                        <Button variant="ghost" onClick={async () => { const res = await multiloginApi.checkLauncher(); setLauncherOk(!res.error); }} className="text-xs">🖥️ Check Launcher</Button>
+                        <Button onClick={() => save({ mlToken, mlEmail, mlPassword, mlFolderId, defaultProxyProvider })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <SectionHeader>📊 Stats</SectionHeader>
 
             <Card>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px" }}>Build Stats</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, textAlign: "center" }}>
-                    <div><div style={{ fontSize: 22, fontWeight: 700 }}>{stats.builds}</div><div style={{ fontSize: 10, color: T.muted }}>Builds</div></div>
-                    <div><div style={{ fontSize: 22, fontWeight: 700, color: T.accent }}>${stats.spend.toFixed(3)}</div><div style={{ fontSize: 10, color: T.muted }}>Spend</div></div>
-                    <div><div style={{ fontSize: 22, fontWeight: 700, color: T.success }}>90+</div><div style={{ fontSize: 10, color: T.muted }}>PageSpeed</div></div>
-                </div>
+                <CardHeader><CardTitle>Build Stats</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                        <div><div className="text-[22px] font-bold">{stats.builds}</div><div className="text-[10px] text-[hsl(var(--muted-foreground))]">Builds</div></div>
+                        <div><div className="text-[22px] font-bold text-[hsl(var(--accent))]">${stats.spend.toFixed(3)}</div><div className="text-[10px] text-[hsl(var(--muted-foreground))]">Spend</div></div>
+                        <div><div className="text-[22px] font-bold text-[hsl(var(--success))]">90+</div><div className="text-[10px] text-[hsl(var(--muted-foreground))]">PageSpeed</div></div>
+                    </div>
+                </CardContent>
             </Card>
         </div>
     );
