@@ -2,7 +2,10 @@ import React, { useMemo } from "react";
 import { THEME as T, COLORS, APP_VERSION } from "../constants";
 import { hsl } from "../utils";
 import { detectRisks } from "../utils/risk-engine";
-import { Card, Btn, Badge, Dot } from "./Atoms";
+import { Dot } from "./Atoms";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 
 export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = {}, apiOk, neonOk }) {
     const recent = sites.slice(0, 5);
@@ -16,59 +19,44 @@ export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = 
     );
 
     return (
-        <div style={{ animation: "fadeIn .3s ease" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div className="animate-[fadeIn_.3s_ease]">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                    <h1 className="text-2xl font-bold m-0 flex items-center gap-2">
                         Dashboard
-                        <span style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            letterSpacing: 0.4,
-                            textTransform: "uppercase",
-                            color: T.primary,
-                            background: `${T.primary}1f`,
-                            border: `1px solid ${T.primary}66`,
-                            borderRadius: 999,
-                            padding: "2px 8px",
-                        }}>
+                        <span className="text-[10px] font-bold tracking-wide uppercase text-[hsl(var(--primary))] bg-[hsl(var(--primary))/12] border border-[hsl(var(--primary))/40] rounded-full px-2 py-0.5">
                             v{APP_VERSION}
                         </span>
                     </h1>
-                    <p style={{ color: T.muted, fontSize: 13, marginTop: 2 }}>LP portfolio overview — Elastic Credits Engine</p>
-                    <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <Badge color={T.success}>Current Code</Badge>
-                        <span style={{ fontSize: 11, color: T.muted }}>
-                            mode: <strong style={{ color: T.text }}>{buildMode}</strong>
+                    <p className="text-[hsl(var(--muted-foreground))] text-sm mt-0.5">LP portfolio overview — Elastic Credits Engine</p>
+                    <div className="mt-2 flex gap-2 items-center flex-wrap">
+                        <Badge variant="success">Current Code</Badge>
+                        <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+                            mode: <strong className="text-[hsl(var(--foreground))]">{buildMode}</strong>
                         </span>
-                        <span style={{ fontSize: 11, color: T.muted }}>
-                            marker: <strong style={{ color: T.text }}>{codeMarker}</strong>
+                        <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+                            marker: <strong className="text-[hsl(var(--foreground))]">{codeMarker}</strong>
                         </span>
                     </div>
                 </div>
-                <Btn onClick={startCreate}>➕ Create New LP</Btn>
+                <Button onClick={startCreate}>➕ Create New LP</Button>
             </div>
 
-            <Card style={{
-                marginBottom: 16,
-                border: `1px solid ${T.success}66`,
-                background: `${T.success}12`,
-                padding: "12px 14px",
-            }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: T.success, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6 }}>
+            {/* Code Signature */}
+            <Card className="mb-4 border-[hsl(var(--success))/40] bg-[hsl(var(--success))/8] p-3">
+                <div className="text-[11px] font-extrabold text-[hsl(var(--success))] tracking-wide uppercase mb-1.5">
                     Current Code Signature
                 </div>
-                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }}>
+                <div className="flex gap-4 flex-wrap text-xs">
                     <span><strong>version:</strong> {APP_VERSION}</span>
                     <span><strong>mode:</strong> {buildMode}</span>
-                    <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>
-                        <strong>marker:</strong> {codeMarker}
-                    </span>
+                    <span className="font-mono"><strong>marker:</strong> {codeMarker}</span>
                 </div>
             </Card>
 
             {/* Metrics */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, marginBottom: 24 }}>
+            <div className="grid grid-cols-6 gap-3 mb-6">
                 {[
                     { l: "Total Sites", v: sites.length, c: T.primary, icon: "🌐" },
                     { l: "Active", v: sites.filter(s => s.status === "completed").length, c: T.success, icon: "✅" },
@@ -77,116 +65,128 @@ export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = 
                     { l: "Ops Domains", v: ops.domains.length, c: "#a78bfa", icon: "🏢" },
                     { l: "Active Cards", v: ops.payments?.filter(p => p.status === "active" || p.cardStatus === "active").length || 0, c: T.success, icon: "💳" },
                 ].map((m, i) => (
-                    <Card key={i} style={{ padding: "16px", position: "relative" }}>
-                        <div style={{ fontSize: 11, color: T.muted }}>{m.l}</div>
-                        <div style={{ fontSize: 26, fontWeight: 700, color: m.c, marginTop: 2 }}>{m.v}</div>
-                        <div style={{ position: "absolute", right: 14, top: 14, fontSize: 18, opacity: .5 }}>{m.icon}</div>
+                    <Card key={i} className="relative p-4">
+                        <div className="text-[11px] text-[hsl(var(--muted-foreground))]">{m.l}</div>
+                        <div className="text-[26px] font-bold mt-0.5" style={{ color: m.c }}>{m.v}</div>
+                        <div className="absolute right-3.5 top-3.5 text-lg opacity-50">{m.icon}</div>
                     </Card>
                 ))}
             </div>
 
             {/* Risk Alert */}
             {risks.length > 0 && (
-                <Card style={{ padding: "14px 18px", marginBottom: 16, borderColor: `${T.danger}44` }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: T.danger, marginBottom: 6 }}>⚠ Correlation Risks Detected</div>
+                <Card className="mb-4 border-[hsl(var(--destructive))/27] p-4">
+                    <div className="text-xs font-bold text-[hsl(var(--destructive))] mb-1.5">⚠ Correlation Risks Detected</div>
                     {risks.slice(0, 3).map((r, i) => (
-                        <div key={i} style={{ fontSize: 12, color: T.muted, padding: "3px 0" }}>
-                            <Badge color={T.danger}>{r.level}</Badge> <span style={{ marginLeft: 6 }}>{r.msg}</span>
+                        <div key={i} className="text-xs text-[hsl(var(--muted-foreground))] py-0.5 flex items-center gap-2">
+                            <Badge variant="danger">{r.level}</Badge>
+                            <span>{r.msg}</span>
                         </div>
                     ))}
-                    <button onClick={() => setPage("ops")} style={{ fontSize: 11, color: T.primary, background: "none", border: "none", cursor: "pointer", marginTop: 6 }}>View Ops Center →</button>
+                    <button onClick={() => setPage("ops")} className="text-[11px] text-[hsl(var(--primary))] bg-transparent border-none cursor-pointer mt-1.5 p-0 hover:underline">
+                        View Ops Center →
+                    </button>
                 </Card>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr", gap: 16 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    {/* Recent */}
-                    <Card style={{ flex: 1 }}>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>🕐 Recent Sites</h3>
-                        {recent.length === 0 ? (
-                            <div style={{ textAlign: "center", padding: 32, color: T.dim }}>
-                                <div style={{ fontSize: 28, marginBottom: 6 }}>🚀</div>
-                                <div style={{ fontSize: 13 }}>No sites yet</div>
-                            </div>
-                        ) : recent.map(s => {
-                            const c = COLORS.find(x => x.id === s.colorId);
-                            return (
-                                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
-                                    <div style={{ width: 34, height: 34, borderRadius: 8, background: c ? hsl(...c.p) : T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff", fontWeight: 700 }}>{s.brand?.[0]}</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 600 }}>{s.brand}</div>
-                                        <div style={{ fontSize: 11, color: T.dim }}>{s.domain || "no domain"}</div>
-                                    </div>
-                                    <Badge color={T.success}>Active</Badge>
+            <div className="grid gap-4" style={{ gridTemplateColumns: "2fr 1.2fr" }}>
+                <div className="flex flex-col gap-4">
+                    {/* Recent Sites */}
+                    <Card className="flex-1">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">🕐 Recent Sites</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {recent.length === 0 ? (
+                                <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
+                                    <div className="text-3xl mb-1.5">🚀</div>
+                                    <div className="text-sm">No sites yet</div>
                                 </div>
-                            );
-                        })}
-                        <Btn variant="ghost" onClick={() => setPage("sites")} style={{ width: "100%", marginTop: 12, fontSize: 11 }}>View All Sites →</Btn>
+                            ) : recent.map(s => {
+                                const c = COLORS.find(x => x.id === s.colorId);
+                                return (
+                                    <div key={s.id} className="flex items-center gap-2.5 py-2.5 border-b border-[hsl(var(--border))]">
+                                        <div className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-sm text-white font-bold shrink-0"
+                                            style={{ background: c ? hsl(...c.p) : T.primary }}>
+                                            {s.brand?.[0]}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-semibold">{s.brand}</div>
+                                            <div className="text-[11px] text-[hsl(var(--muted-foreground))]">{s.domain || "no domain"}</div>
+                                        </div>
+                                        <Badge variant="success">Active</Badge>
+                                    </div>
+                                );
+                            })}
+                            <Button variant="ghost" onClick={() => setPage("sites")} className="w-full mt-3 text-[11px]">
+                                View All Sites →
+                            </Button>
+                        </CardContent>
                     </Card>
 
                     {/* Quick Actions */}
                     <Card>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>⚡ Quick Actions</h3>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                            {[
-                                { l: "Build New", icon: "➕", fn: startCreate },
-                                { l: "AI Assets", icon: "✨", fn: () => setPage("variant") },
-                                { l: "Ops Center", icon: "🏢", fn: () => setPage("ops") },
-                                { l: "Settings", icon: "⚙", fn: () => setPage("settings") },
-                            ].map((a, i) => (
-                                <button key={i} onClick={a.fn} style={{
-                                    display: "flex", alignItems: "center", gap: 10, padding: "12px", background: T.input,
-                                    border: `1px solid ${T.border}`, borderRadius: 8, cursor: "pointer", color: T.text, transition: "all .2s"
-                                }} onMouseEnter={e => e.currentTarget.style.borderColor = T.primary} onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
-                                    <span style={{ fontSize: 16 }}>{a.icon}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600 }}>{a.l}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <CardHeader>
+                            <CardTitle className="text-sm font-semibold">⚡ Quick Actions</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    { l: "Build New", icon: "➕", fn: startCreate },
+                                    { l: "AI Assets", icon: "✨", fn: () => setPage("variant") },
+                                    { l: "Ops Center", icon: "🏢", fn: () => setPage("ops") },
+                                    { l: "Settings", icon: "⚙", fn: () => setPage("settings") },
+                                ].map((a, i) => (
+                                    <Button key={i} variant="ghost" onClick={a.fn} className="flex items-center justify-start gap-2.5 p-3 h-auto">
+                                        <span className="text-base">{a.icon}</span>
+                                        <span className="text-xs font-semibold">{a.l}</span>
+                                    </Button>
+                                ))}
+                            </div>
+                        </CardContent>
                     </Card>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div className="flex flex-col gap-4">
                     {/* AI Insight Card */}
-                    <Card style={{ background: T.grad, color: "#fff", border: "none" }}>
-                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>✨ AI Performance Hack</h3>
-                        <p style={{ fontSize: 12, lineHeight: 1.6, opacity: 0.9 }}>
-                            {sites.length > 0 ?
-                                `Your brand "${recent[0]?.brand}" can improve CTR by 15% by using a "Limited Time" badge in the copy step.` :
-                                "Ready to scale? Gemini AI can generate high-converting copy in 5+ languages automatically."
-                            }
-                        </p>
-                        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.2)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                            Action: Enable Micro-Conversions
-                        </div>
+                    <Card className="border-none text-white" style={{ background: T.grad }}>
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold text-white flex items-center gap-2">✨ AI Performance Hack</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-xs leading-relaxed opacity-90">
+                                {sites.length > 0 ?
+                                    `Your brand "${recent[0]?.brand}" can improve CTR by 15% by using a "Limited Time" badge in the copy step.` :
+                                    "Ready to scale? Gemini AI can generate high-converting copy in 5+ languages automatically."
+                                }
+                            </p>
+                            <div className="mt-4 pt-3 border-t border-white/20 text-[10px] font-semibold uppercase tracking-wide">
+                                Action: Enable Micro-Conversions
+                            </div>
+                        </CardContent>
                     </Card>
 
-                    {/* Infrastructure Health */}
+                    {/* System Health */}
                     <Card>
-                        <h3 style={{ fontSize: 13, fontWeight: 700, color: T.muted, marginBottom: 12, textTransform: "uppercase" }}>System Health</h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Data Store</span>
-                                <Dot c={neonOk ? T.success : apiOk ? T.success : T.warning}
-                                     label={neonOk ? "Neon DB" : apiOk ? "API / D1" : "Local Only"} />
+                        <CardHeader>
+                            <CardTitle className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">System Health</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-col gap-2.5">
+                                {[
+                                    { label: "Data Store", dot: neonOk ? T.success : apiOk ? T.success : T.warning, text: neonOk ? "Neon DB" : apiOk ? "API / D1" : "Local Only" },
+                                    { label: "CF Pages Deploy", dot: settings.cfApiToken ? T.success : T.dim, text: settings.cfApiToken ? "Ready" : "Not Set" },
+                                    { label: "Netlify Deploy", dot: settings.netlifyToken ? T.success : T.dim, text: settings.netlifyToken ? "Ready" : "Not Set" },
+                                    { label: "LeadingCards API", dot: settings.lcToken ? T.success : T.dim, text: settings.lcToken ? "Connected" : "Not Set" },
+                                    { label: "Multilogin X", dot: settings.mlToken ? T.success : T.dim, text: settings.mlToken ? "Connected" : "Not Set" },
+                                ].map((row, i) => (
+                                    <div key={i} className="flex justify-between items-center">
+                                        <span className="text-xs">{row.label}</span>
+                                        <Dot c={row.dot} label={row.text} />
+                                    </div>
+                                ))}
                             </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>CF Pages Deploy</span>
-                                <Dot c={settings.cfApiToken ? T.success : T.dim} label={settings.cfApiToken ? "Ready" : "Not Set"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Netlify Deploy</span>
-                                <Dot c={settings.netlifyToken ? T.success : T.dim} label={settings.netlifyToken ? "Ready" : "Not Set"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>LeadingCards API</span>
-                                <Dot c={settings.lcToken ? T.success : T.dim} label={settings.lcToken ? "Connected" : "Not Set"} />
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12 }}>Multilogin X</span>
-                                <Dot c={settings.mlToken ? T.success : T.dim} label={settings.mlToken ? "Connected" : "Not Set"} />
-                            </div>
-                        </div>
+                        </CardContent>
                     </Card>
                 </div>
             </div>

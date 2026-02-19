@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import { fileURLToPath } from 'node:url';
+import tailwindcss from '@tailwindcss/vite';
 
 // Get API base URL from environment or use default
 const API_BASE = process.env.VITE_API_BASE || 'https://lp-factory-api.songsawat-w.workers.dev';
@@ -8,6 +9,7 @@ const API_BASE = process.env.VITE_API_BASE || 'https://lp-factory-api.songsawat-
 export default defineConfig({
   integrations: [react()],
   vite: {
+    plugins: [tailwindcss()],
     server: {
       proxy: {
         '/api': {
