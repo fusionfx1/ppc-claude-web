@@ -12,6 +12,7 @@ const badgeVariants = cva(
         danger: "bg-[hsl(var(--destructive))/18] text-[hsl(var(--destructive))]",
         warning: "bg-[hsl(var(--warning))/18] text-[hsl(var(--warning))]",
         muted: "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]",
+        secondary: "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]",
       },
     },
     defaultVariants: {
