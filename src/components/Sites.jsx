@@ -75,6 +75,9 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy }) 
                 // Single-file HTML deploy for other targets
                 console.log("[Sites] Using non-git-push target, calling generateHtmlByTemplate");
                 content = generateHtmlByTemplate(site);
+                console.log("[Sites] Generated content type:", typeof content);
+                console.log("[Sites] Content keys:", Object.keys(content || {}));
+                console.log("[Sites] Content length:", content?.length || 'N/A');
             }
 
             const result = await deployTo(target, content, site, settings);

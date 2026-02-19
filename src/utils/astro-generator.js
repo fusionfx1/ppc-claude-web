@@ -4,7 +4,7 @@
  * Each key is a file path, each value is the file content string.
  */
 
-import { COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants";
+import { COLORS, FONTS, RADIUS, LOAN_TYPES } from "../constants/index.js";
 
 function esc(str) {
   return String(str || "").replace(/`/g, "\\`").replace(/\$/g, "\\$");
@@ -707,7 +707,7 @@ npm run preview  # Preview built site
 
 ## Configuration
 
-Edit \`.env\` to configure tracking and API keys:
+Edit .env to configure tracking and API keys:
 
 \`\`\`
 SITE_URL=https://${domain}
@@ -2058,7 +2058,7 @@ Astro static landing page for ${loanLabel}. Built with zero-JS architecture for 
 - **Hero Form**: Interactive loan amount selector with ZIP code input
 - **Trust Badges**: Social proof with funded count, ratings, and security indicators
 - **Calculator**: Payment estimator with multiple term options
-- **FAQ Accordion**: Native \`<details>\` elements for accessibility
+- **FAQ Accordion**: Native <details> elements for accessibility
 - **Full Compliance**: Representative example, APR disclosure, and footer disclaimers
 
 ## Quick Start
@@ -2072,7 +2072,7 @@ npm run preview  # Preview built site
 
 ## Configuration
 
-Edit \`.env\` to configure:
+Edit .env to configure:
 
 \`\`\`
 SITE_URL=https://${domain}
@@ -2101,6 +2101,7 @@ npx netlify deploy --prod --dir=dist
 \`\`\`
 `;
 
+    console.log("[generatePDLLoansV1] Generated", Object.keys(files).length, "files:", Object.keys(files));
     return files;
   } catch (e) {
     console.error("[generatePDLLoansV1] Error:", e);

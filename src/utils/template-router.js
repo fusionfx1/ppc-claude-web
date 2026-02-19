@@ -11,6 +11,10 @@ function resolveTemplateId(site) {
 
 export function generateHtmlByTemplate(site) {
   switch (resolveTemplateId(site)) {
+    // For pdl-loansv1, use classic LP for preview (live preview uses files map)
+    case "pdl-loansv1":
+      console.log("[template-router] Using generateLP for HTML preview (pdl-loansv1 uses files map for deploy)");
+      return generateLP(site);
     case "astrodeck-loan":
       return generateAstrodeckLoanPreview(site);
     case "classic":

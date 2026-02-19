@@ -2,7 +2,7 @@ import React from "react";
 import { THEME as T } from "../constants";
 import { Dot } from "./Atoms";
 
-export function TopBar({ stats, settings, deploys, apiOk, neonOk }) {
+export function TopBar({ stats, settings, deploys, apiOk, neonOk, onReconnectNeon }) {
     return (
         <div style={{
             height: 48, borderBottom: `1px solid ${T.border}`, display: "flex",
@@ -19,6 +19,24 @@ export function TopBar({ stats, settings, deploys, apiOk, neonOk }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <Dot c={neonOk ? T.success : T.warning} label={neonOk ? "Neon ✓" : apiOk ? "API ✓" : "Local"} />
+                {!neonOk && settings.neonUrl && (
+                    <button
+                        onClick={onReconnectNeon}
+                        style={{
+                            fontSize: 11,
+                            padding: "4px 8px",
+                            background: T.primary,
+                            color: "white",
+                            border: "none",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                            transition: "all .2s"
+                        }}
+                        title="Reconnect to Neon database"
+                    >
+                        Reconnect
+                    </button>
+                )}
                 {settings.netlifyToken && <Dot c={T.success} label="Netlify" />}
                 <Dot c={settings.apiKey ? T.success : T.danger} label={settings.apiKey ? "AI OK" : "No AI"} />
                 <Dot c={settings.lcToken ? T.success : T.dim} label={settings.lcToken ? "LC ✓" : "LC"} />

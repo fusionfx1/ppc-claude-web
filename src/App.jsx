@@ -36,6 +36,13 @@ export default function App() {
 
   useEffect(() => {
     bootApp();
+    
+    // Set up visibility handler for Neon reconnection
+    const cleanupVisibility = db.setupVisibilityHandler();
+    
+    return () => {
+      cleanupVisibility?.();
+    };
   }, []);
 
   async function bootApp() {
@@ -142,6 +149,47 @@ export default function App() {
 
     setLoading(false);
   }
+
+  // Connection recovery function - can be called manually or automatically
+  const recoverNeonConnection = async () => {
+    const localSettings = LS.get("settings") || {};
+    const neonConnStr = NEON_URL || localSettings.neonUrl || "";
+    
+    if (neonConnStr && neonConnStr.includes("@") && !neonConnStr.includes("ep-xxx")) {
+      console.log("[App] Attempting Neon connection recovery");
+      const reconnected = db.forceReconnect();
+      if (reconnected) {
+        const pong = await db.ping();
+        setNeonOk(pong);
+        if (pong) {
+          // Reload data from Neon after reconnection
+          const [neonSettings, neonSites, neonDeploys] = await Promise.all([
+            db.loadSettings(),
+            db.loadSites(),
+            db.loadDeploys(),
+          ]);
+          
+          if (neonSettings) {
+            const merged = { ...neonSettings, ...localSettings };
+            setSettings(merged);
+            LS.set("settings", merged);
+          }
+          
+          if (neonSites?.length > 0) {
+            setSites(neonSites);
+          }
+          
+          if (neonDeploys?.length > 0) {
+            setDeploys(neonDeploys);
+          }
+          
+          notify("Neon connection restored!");
+          return true;
+        }
+      }
+    }
+    return false;
+  };
 
   const notify = (msg, type = "success") => {
     setToast({ msg, type });
@@ -337,6 +385,12 @@ export default function App() {
           db.syncFromLocal(fresh, sites, deploys);
           return;
         }
+      } else {
+        // Try connection recovery if initial init fails
+        const recovered = await recoverNeonConnection();
+        if (recovered) {
+          return;
+        }
       }
       notify("Neon connection failed", "danger");
       return;
@@ -382,7 +436,7 @@ export default function App() {
         collapsed={sideCollapsed} toggle={() => setSideCollapsed(p => !p)} />
 
       <main style={{ flex: 1, marginLeft: ml, minHeight: "100vh", transition: "margin .2s" }}>
-        <TopBar stats={stats} settings={settings} deploys={deploys} apiOk={apiOk} neonOk={neonOk} />
+        <TopBar stats={stats} settings={settings} deploys={deploys} apiOk={apiOk} neonOk={neonOk} onReconnectNeon={recoverNeonConnection} />
         <div style={{ padding: "24px 28px" }}>
           {page === "dashboard" && <Dashboard sites={sites} stats={stats} ops={ops} setPage={setPage} startCreate={startCreate} settings={settings} apiOk={apiOk} neonOk={neonOk} />}
           {page === "sites" && <Sites sites={sites} del={delSite} notify={notify} startCreate={startCreate} settings={settings} addDeploy={addDeploy} />}
@@ -400,6 +454,24 @@ export default function App() {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
         input:focus,select:focus,textarea:focus{outline:none;border-color:${T.borderFocus}!important;box-shadow:0 0 0 3px ${T.primaryGlow}}
         ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
+        
+        /* Performance-optimized form controls */
+        .form-input:focus {
+          border-color: ${T.primary} !important;
+          box-shadow: 0 0 0 3px ${T.primary}22 !important;
+        }
+        
+        .form-select:focus {
+          border-color: ${T.primary} !important;
+        }
+        
+        .btn:not(.btn-disabled):hover {
+          transform: translateY(-1px);
+        }
+        
+        .btn:not(.btn-disabled) {
+          will-change: transform;
+        }
       `}</style>
     </div>
   );

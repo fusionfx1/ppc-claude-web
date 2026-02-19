@@ -1,29 +1,28 @@
 import React from "react";
 import { THEME as T } from "../constants";
 
-export function Card({ children, style, ...p }) {
+export const Card = React.memo(function Card({ children, style, ...p }) {
     return <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, transition: "transform .2s, box-shadow .2s", ...style }} {...p}>{children}</div>;
-}
+});
 
-export function Inp({ value, onChange, style, ...p }) {
+export const Inp = React.memo(function Inp({ value, onChange, style, ...p }) {
     return <input value={value} onChange={e => onChange(e.target.value)} style={{
         width: "100%", padding: "9px 12px", background: T.input, border: `1px solid ${T.border}`,
         borderRadius: 7, color: T.text, fontSize: 13, boxSizing: "border-box", transition: "all .2s",
         outline: "none", ...style,
-    }} onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px ${T.primary}22`; }}
-        onBlur={e => { e.target.style.borderColor = T.border; e.target.style.boxShadow = "none"; }} {...p} />;
-}
+    }} className="form-input" {...p} />;
+});
 
-export function Sel({ value, onChange, options, style }) {
+export const Sel = React.memo(function Sel({ value, onChange, options, style }) {
     return <select value={value} onChange={e => onChange(e.target.value)} style={{
         width: "100%", padding: "9px 12px", background: T.input, border: `1px solid ${T.border}`,
         borderRadius: 7, color: T.text, fontSize: 13, cursor: "pointer", transition: "all .2s", outline: "none", ...style,
-    }} onFocus={e => e.target.style.borderColor = T.primary} onBlur={e => e.target.style.borderColor = T.border}>
+    }} className="form-select" >
         {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
     </select>;
-}
+});
 
-export function Btn({ children, variant = "primary", onClick, disabled, style }) {
+export const Btn = React.memo(function Btn({ children, variant = "primary", onClick, disabled, style }) {
     const base = { border: "none", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, padding: "9px 18px", transition: "all .2s", opacity: disabled ? .5 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 };
     const vars = {
         primary: { background: T.grad, color: "#fff", boxShadow: "0 2px 12px rgba(99,102,241,.25)" },
@@ -32,9 +31,9 @@ export function Btn({ children, variant = "primary", onClick, disabled, style })
         success: { background: T.success, color: "#fff" },
     };
     return <button onClick={onClick} disabled={disabled} style={{ ...base, ...vars[variant], ...style }}
-        onMouseEnter={e => { if (!disabled) e.currentTarget.style.transform = "translateY(-1px)"; }}
-        onMouseLeave={e => { if (!disabled) e.currentTarget.style.transform = "none"; }}>{children}</button>;
-}
+        className={`btn btn-${variant} ${disabled ? 'btn-disabled' : ''}`}
+        >{children}</button>;
+});
 
 export function MockPhone({ children, style }) {
     return (

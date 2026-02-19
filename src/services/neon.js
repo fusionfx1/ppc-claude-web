@@ -12,6 +12,9 @@ import { neon } from "@neondatabase/serverless";
 
 let sql = null;
 let connectionString = null;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 3;
+let reconnectDelay = 1000; // 1 second
 
 /**
  * Initialize the Neon connection. Call once on app start.
@@ -22,6 +25,7 @@ export function initNeon(connStr) {
   connectionString = connStr;
   try {
     sql = neon(connStr);
+    reconnectAttempts = 0; // Reset reconnect attempts on successful init
     console.log("[neon] Connection initialized");
     return true;
   } catch (e) {
@@ -32,16 +36,33 @@ export function initNeon(connStr) {
 }
 
 /**
- * Ensure connection is alive, reconnect if needed
+ * Ensure connection is alive, reconnect if needed with retry logic
  * @internal
  */
 function ensureConnection() {
-  if (!sql && connectionString) {
+  if (!sql && connectionString && reconnectAttempts < maxReconnectAttempts) {
     try {
       sql = neon(connectionString);
-      console.log("[neon] Reconnected");
+      reconnectAttempts++;
+      console.log(`[neon] Reconnected (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+      
+      // Test the connection immediately
+      sql`SELECT 1 as ok`.catch(() => {
+        // If test fails, nullify the connection to trigger retry next time
+        sql = null;
+        console.warn("[neon] Connection test failed, will retry");
+      });
     } catch (e) {
-      console.warn("[neon] Reconnect failed:", e.message);
+      console.warn(`[neon] Reconnect failed (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}):`, e.message);
+      reconnectAttempts++;
+      
+      // If we've maxed out attempts, reset after a delay
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        setTimeout(() => {
+          reconnectAttempts = 0;
+          console.log("[neon] Resetting reconnect attempts");
+        }, reconnectDelay * 3); // Wait longer before resetting
+      }
     }
   }
   return sql !== null;
@@ -245,4 +266,54 @@ export async function syncFromLocal(localSettings, localSites, localDeploys) {
   } catch (e) {
     console.warn("[neon] syncFromLocal error:", e.message);
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// CONNECTION RECOVERY
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Force reconnection attempt - useful after page refresh or visibility change
+ */
+export function forceReconnect() {
+  if (connectionString) {
+    sql = null;
+    reconnectAttempts = 0;
+    console.log("[neon] Forcing reconnection");
+    return ensureConnection();
+  }
+  return false;
+}
+
+/**
+ * Handle page visibility changes to reconnect when page becomes visible again
+ */
+export function setupVisibilityHandler() {
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && !sql && connectionString) {
+      console.log("[neon] Page became visible, attempting reconnection");
+      setTimeout(() => {
+        forceReconnect();
+      }, reconnectDelay);
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // Return cleanup function
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}
+
+/**
+ * Get connection status for debugging
+ */
+export function getConnectionStatus() {
+  return {
+    connected: sql !== null,
+    connectionString: !!connectionString,
+    reconnectAttempts,
+    maxReconnectAttempts
+  };
 }
