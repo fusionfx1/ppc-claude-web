@@ -97,7 +97,7 @@ export const WIZARD_DEFAULTS = {
     trustBadgeIconTone: "primary",
     h1: "", badge: "", cta: "", sub: "",
     conversionId: "", formStartLabel: "", formSubmitLabel: "",
-    aid: "", network: "LeadsGate", redirectUrl: "",
+    aid: "14881", network: "LeadsGate", redirectUrl: "",
     voluumId: "", voluumDomain: "",
     lang: "English",
 };
