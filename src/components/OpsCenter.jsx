@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { THEME as T, REGISTRARS } from "../constants";
 import { uid, now } from "../utils";
-import { Card, Btn, Badge, Inp, Dot } from "./Atoms";
+import { Dot } from "./Atoms";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { InputField as Inp } from "./ui/input-field";
+import { cn } from "../lib/utils";
 import { leadingCardsApi } from "../services/leadingCards";
 import { multiloginApi } from "../services/multilogin";
 import { detectRisks, RISK_ICONS, RISK_COLORS } from "../utils/risk-engine";
@@ -65,6 +70,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
     const [syncing, setSyncing] = useState(false);
     const [testingCfId, setTestingCfId] = useState(null);
     const [testingRegId, setTestingRegId] = useState(null);
+    const [editingReg, setEditingReg] = useState(null);
+    const [requestingIp, setRequestingIp] = useState(false);
     const [domainDeployMap, setDomainDeployMap] = useState({});
     const [domainCfFilter, setDomainCfFilter] = useState("all");
     const [compactDomainView, setCompactDomainView] = useState(false);
@@ -129,6 +136,28 @@ export function OpsCenter({ data, add, del, upd, settings }) {
         }
     };
 
+    const handleRequestIp = async () => {
+        setRequestingIp(true);
+        try {
+            const res = await api.get("/api/automation/registrar/ip");
+            if (res.success) {
+                // Copy to clipboard
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(res.ip);
+                    flash(`Worker IP: ${res.ip} (Copied!)`, "success");
+                } else {
+                    flash(`Worker IP: ${res.ip}`, "success");
+                }
+            } else {
+                flash(res.error || "Failed to get IP", "error");
+            }
+        } catch (e) {
+            flash(`Failed to get IP: ${e.message}`, "error");
+        } finally {
+            setRequestingIp(false);
+        }
+    };
+
     /* ─── Sync MLX token from settings ──────────────────────────────── */
     useEffect(() => {
         if (settings.mlToken) multiloginApi.setToken(settings.mlToken);
@@ -177,7 +206,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                         return { ...p, status: isActive ? "running" : (p.status === "running" ? "stopped" : p.status) };
                     }));
                 })
-                .catch(() => {});
+                .catch(() => { });
         }, 30000);
         return () => clearInterval(poll);
     }, [tab]);
@@ -325,12 +354,12 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                         </div>
                     ))}
                     <div style={S.btnRow}>
-                        <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-                        <Btn onClick={() => {
+                        <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
+                        <Button onClick={() => {
                             if (onSubmit) { onSubmit(form); }
                             else { add(coll, { id: uid(), ...form, status: "active", createdAt: now() }); }
                             setModal(null);
-                        }}>Add</Btn>
+                        }}>Add</Button>
                     </div>
                 </Card>
             </div>
@@ -432,7 +461,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     {risks.slice(0, 5).map((r, i) => (
                         <div key={i} style={{ padding: "4px 0", fontSize: 12, color: T.muted }}>
                             <span style={{ marginRight: 6 }}>{RISK_ICONS[r.category] || "⚠️"}</span>
-                            <Badge color={RISK_COLORS[r.level] || T.warning}>{r.level}</Badge>
+                            <Badge style={{ background: `${RISK_COLORS[r.level] || T.warning}18`, color: RISK_COLORS[r.level] || T.warning, border: `1px solid ${RISK_COLORS[r.level] || T.warning}44` }}>{r.level}</Badge>
                             <span style={{ marginLeft: 8 }}>{r.msg}</span>
                         </div>
                     ))}
@@ -446,7 +475,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                             <div style={{ fontSize: 14, fontWeight: 700 }}>Quick Actions</div>
                             <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Create a full account stack end-to-end</div>
                         </div>
-                        <Btn onClick={() => { setWizardStep(0); setWizardData({}); setModal("wizard"); }}>+ New Account (E2E)</Btn>
+                        <Button onClick={() => { setWizardStep(0); setWizardData({}); setModal("wizard"); }}>+ New Account (E2E)</Button>
                     </div>
                 </Card>
             </>}
@@ -456,9 +485,9 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 ═══════════════════════════════════════════════════════════ */}
             {tab === "domains" && <>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                    <Btn onClick={() => setModal("domain-check")}>🔍 Check & Register</Btn>
-                    <Btn variant="ghost" onClick={() => setModal("domain-import")}>📥 Import from Registrar</Btn>
-                    <Btn variant="ghost" onClick={() => setModal("domain-add-existing")}>+ Add Existing Domain</Btn>
+                    <Button onClick={() => setModal("domain-check")}>🔍 Check & Register</Button>
+                    <Button variant="ghost"  onClick={() => setModal("domain-import")}>📥 Import from Registrar</Button>
+                    <Button variant="ghost"  onClick={() => setModal("domain-add-existing")}>+ Add Existing Domain</Button>
                 </div>
 
                 <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
@@ -482,77 +511,77 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                 <div style={{ width: 92, textAlign: "right" }}>Actions</div>
                             </div>}
                             {filteredDomains.map(d => {
-                            const cfAccountId = d.cfAccountId || d.cf_account_id || "";
-                            const cfAccount = data.cfAccounts?.find(c =>
-                                c.id === cfAccountId || c.accountId === cfAccountId || c.account_id === cfAccountId
-                            );
-                            const deployInfo = domainDeployMap[String(d.id || "").toLowerCase()] || domainDeployMap[String(d.domain || "").toLowerCase()] || { targets: {}, latest: null };
-                            const deployTargets = Object.values(deployInfo.targets || {});
-                            const cfStateRaw = getDomainCfState(d);
-                            const cfStateLabel = cfStateRaw === "active"
-                                ? "Active"
-                                : cfStateRaw === "pending"
-                                    ? "Pending"
-                                    : "Not connected";
-                            const cfStateColor = cfStateRaw === "active"
-                                ? T.success
-                                : cfStateRaw === "pending"
-                                    ? T.warning
-                                    : T.dim;
-                            return (
-                                <div key={d.id} style={{ ...S.row, ...(compactDomainView ? { flexWrap: "wrap", alignItems: "flex-start", gap: 8 } : {}) }}>
-                                    <div style={{ flex: 2, fontWeight: 600, fontSize: 12 }}>{d.domain || "—"}</div>
-                                    <div style={{ flex: 1, fontSize: 11 }}>{d.registrar || "—"}</div>
-                                    <div style={{ flex: 2, fontSize: 11 }}>
-                                        <div>{cfAccount ? cfAccount.label : cfAccountId ? `${cfAccountId.slice(0, 8)}...` : "—"}</div>
-                                        <div style={{ marginTop: 2 }}>
-                                            <Badge color={cfStateColor}>{cfStateLabel}</Badge>
+                                const cfAccountId = d.cfAccountId || d.cf_account_id || "";
+                                const cfAccount = data.cfAccounts?.find(c =>
+                                    c.id === cfAccountId || c.accountId === cfAccountId || c.account_id === cfAccountId
+                                );
+                                const deployInfo = domainDeployMap[String(d.id || "").toLowerCase()] || domainDeployMap[String(d.domain || "").toLowerCase()] || { targets: {}, latest: null };
+                                const deployTargets = Object.values(deployInfo.targets || {});
+                                const cfStateRaw = getDomainCfState(d);
+                                const cfStateLabel = cfStateRaw === "active"
+                                    ? "Active"
+                                    : cfStateRaw === "pending"
+                                        ? "Pending"
+                                        : "Not connected";
+                                const cfStateColor = cfStateRaw === "active"
+                                    ? T.success
+                                    : cfStateRaw === "pending"
+                                        ? T.warning
+                                        : T.dim;
+                                return (
+                                    <div key={d.id} style={{ ...S.row, ...(compactDomainView ? { flexWrap: "wrap", alignItems: "flex-start", gap: 8 } : {}) }}>
+                                        <div style={{ flex: 2, fontWeight: 600, fontSize: 12 }}>{d.domain || "—"}</div>
+                                        <div style={{ flex: 1, fontSize: 11 }}>{d.registrar || "—"}</div>
+                                        <div style={{ flex: 2, fontSize: 11 }}>
+                                            <div>{cfAccount ? cfAccount.label : cfAccountId ? `${cfAccountId.slice(0, 8)}...` : "—"}</div>
+                                            <div style={{ marginTop: 2 }}>
+                                                <Badge style={{ background: `${cfStateColor}18`, color: cfStateColor, border: `1px solid ${cfStateColor}44` }}>{cfStateLabel}</Badge>
+                                            </div>
+                                        </div>
+                                        <div style={{ flex: 2.2, fontSize: 11 }}>
+                                            {deployTargets.length === 0 ? (
+                                                <span style={{ color: T.dim }}>Not deployed</span>
+                                            ) : (
+                                                <div>
+                                                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
+                                                        {deployTargets.map((entry) => (
+                                                            <Badge key={entry.target} color={T.primary}>{entry.target}</Badge>
+                                                        ))}
+                                                    </div>
+                                                    {deployInfo.latest?.url && (
+                                                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                                            <a
+                                                                href={deployInfo.latest.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                style={{ color: T.primary, textDecoration: "none", fontSize: 10 }}
+                                                            >
+                                                                Open latest ↗
+                                                            </a>
+                                                            <button
+                                                                onClick={() => navigator.clipboard?.writeText(deployInfo.latest.url)}
+                                                                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: 0 }}
+                                                            >
+                                                                Copy URL
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={{ flex: 1.1 }}>
+                                            <Badge style={{ background: `${d.status === "active" ? T.success : d.status === "pending" ? T.warning : T.dim}18`, color: d.status === "active" ? T.success : d.status === "pending" ? T.warning : T.dim, border: `1px solid ${d.status === "active" ? T.success : d.status === "pending" ? T.warning : T.dim}44` }}>
+                                                {d.status || "unknown"}
+                                            </Badge>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 4, width: 92, justifyContent: "flex-end" }}>
+                                            <button onClick={() => setModal({ type: "domain-manage", domain: d })}
+                                                style={{ ...S.miniBtn, background: `${T.primary}22`, color: T.primary }}>Manage</button>
+                                            <button onClick={() => del("domains", d.id)}
+                                                style={{ background: `${T.danger}22`, border: "none", borderRadius: 5, padding: "4px 8px", color: T.danger, cursor: "pointer", fontSize: 10 }}>{"\u2715"}</button>
                                         </div>
                                     </div>
-                                    <div style={{ flex: 2.2, fontSize: 11 }}>
-                                        {deployTargets.length === 0 ? (
-                                            <span style={{ color: T.dim }}>Not deployed</span>
-                                        ) : (
-                                            <div>
-                                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
-                                                    {deployTargets.map((entry) => (
-                                                        <Badge key={entry.target} color={T.primary}>{entry.target}</Badge>
-                                                    ))}
-                                                </div>
-                                                {deployInfo.latest?.url && (
-                                                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                                        <a
-                                                            href={deployInfo.latest.url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            style={{ color: T.primary, textDecoration: "none", fontSize: 10 }}
-                                                        >
-                                                            Open latest ↗
-                                                        </a>
-                                                        <button
-                                                            onClick={() => navigator.clipboard?.writeText(deployInfo.latest.url)}
-                                                            style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: 0 }}
-                                                        >
-                                                            Copy URL
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div style={{ flex: 1.1 }}>
-                                        <Badge color={d.status === "active" ? T.success : d.status === "pending" ? T.warning : T.dim}>
-                                            {d.status || "unknown"}
-                                        </Badge>
-                                    </div>
-                                    <div style={{ display: "flex", gap: 4, width: 92, justifyContent: "flex-end" }}>
-                                        <button onClick={() => setModal({ type: "domain-manage", domain: d })}
-                                            style={{ ...S.miniBtn, background: `${T.primary}22`, color: T.primary }}>Manage</button>
-                                        <button onClick={() => del("domains", d.id)}
-                                            style={{ background: `${T.danger}22`, border: "none", borderRadius: 5, padding: "4px 8px", color: T.danger, cursor: "pointer", fontSize: 10 }}>{"\u2715"}</button>
-                                    </div>
-                                </div>
-                            );
+                                );
                             })}
                         </>}
                 </div>
@@ -676,11 +705,11 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         </div>
                                     )}
                                     <div style={S.btnRow}>
-                                        <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
+                                        <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
                                         {available === true ? (
-                                            <Btn onClick={() => setStep(2)}>Next →</Btn>
+                                            <Button onClick={() => setStep(2)}>Next →</Button>
                                         ) : (
-                                            <Btn onClick={handleCheck} disabled={checking}>{checking ? "Checking..." : "Check Availability"}</Btn>
+                                            <Button onClick={handleCheck} disabled={checking}>{checking ? "Checking..." : "Check Availability"}</Button>
                                         )}
                                     </div>
                                 </>}
@@ -728,10 +757,10 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     </div>
 
                                     <div style={S.btnRow}>
-                                        <Btn variant="ghost" onClick={() => setStep(1)}>← Back</Btn>
-                                        <Btn onClick={handleRegister} disabled={registering || !selectedCfAccount || !selectedRegistrar}>
+                                        <Button variant="ghost"  onClick={() => setStep(1)}>← Back</Button>
+                                        <Button onClick={handleRegister} disabled={registering || !selectedCfAccount || !selectedRegistrar}>
                                             {registering ? "Registering..." : "Register & Setup"}
-                                        </Btn>
+                                        </Button>
                                     </div>
                                 </>}
                             </Card>
@@ -806,15 +835,15 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Imported domains:</div>
                                         {imported.slice(0, 10).map((d, i) => (
                                             <div key={i} style={{ padding: "4px 8px", fontSize: 12, borderBottom: `1px solid ${T.border}` }}>
-                                                {typeof d === "string" ? d : d.domain} <Badge color={(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim} style={{ float: "right" }}>{typeof d === "string" ? "ACTIVE" : d.status}</Badge>
+                                                {typeof d === "string" ? d : d.domain} <Badge style={{ background: `${(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim}18`, color: (typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim, border: `1px solid ${(typeof d === "string" ? true : d.status) === "ACTIVE" ? T.success : T.dim}44` }} style={{ float: "right" }}>{typeof d === "string" ? "ACTIVE" : d.status}</Badge>
                                             </div>
                                         ))}
                                     </div>
                                 )}
 
                                 <div style={S.btnRow}>
-                                    <Btn variant="ghost" onClick={() => setModal(null)}>Close</Btn>
-                                    <Btn onClick={handleImport} disabled={importing || !selectedRegistrarAccount}>{importing ? "Importing..." : "Import"}</Btn>
+                                    <Button variant="ghost"  onClick={() => setModal(null)}>Close</Button>
+                                    <Button onClick={handleImport} disabled={importing || !selectedRegistrarAccount}>{importing ? "Importing..." : "Import"}</Button>
                                 </div>
                             </Card>
                         </div>
@@ -849,14 +878,35 @@ export function OpsCenter({ data, add, del, upd, settings }) {
             {modal && modal.type === "domain-manage" && (() => {
                 const ManageDomainModal = () => {
                     const d = modal.domain;
-                    const nameserverList = Array.isArray(d.nameservers)
-                        ? d.nameservers
-                        : typeof d.nameservers === "string"
-                            ? d.nameservers
-                                .split(",")
-                                .map((s) => s.trim())
-                                .filter(Boolean)
-                            : [];
+                    const parseNameservers = (raw) => {
+                        if (Array.isArray(raw)) {
+                            return raw.map((s) => String(s || "").trim()).filter(Boolean);
+                        }
+
+                        if (typeof raw !== "string") return [];
+
+                        const trimmed = raw.trim();
+                        if (!trimmed) return [];
+
+                        // D1 can store this field as JSON text (e.g. ["ns1","ns2"])
+                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                            try {
+                                const parsed = JSON.parse(trimmed);
+                                if (Array.isArray(parsed)) {
+                                    return parsed.map((s) => String(s || "").trim()).filter(Boolean);
+                                }
+                            } catch (_e) {
+                                // Fallback to CSV parsing below
+                            }
+                        }
+
+                        return trimmed
+                            .split(",")
+                            .map((s) => s.replace(/[\[\]"]+/g, "").trim())
+                            .filter(Boolean);
+                    };
+
+                    const nameserverList = parseNameservers(d.nameservers);
                     const [addingToCf, setAddingToCf] = useState(false);
                     const [updatingNs, setUpdatingNs] = useState(false);
                     const [selectedCfAccount, setSelectedCfAccount] = useState(d.cfAccountId || "");
@@ -940,15 +990,29 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                 ? currentNs
                                 : registrarApi.getCloudflareNameservers();
 
-                            // Resolve registrar account id (stored id preferred, then provider match)
-                            const provider = String(d.registrar || "").toLowerCase();
-                            const matchedRegistrar = (data.registrarAccounts || []).find(r =>
-                                String(r.id || "") === String(d.registrarAccountId || "") ||
-                                (provider && String(r.provider || "").toLowerCase() === provider)
-                            );
-                            const accountId = d.registrarAccountId || matchedRegistrar?.id || undefined;
+                            // Resolve registrar account id (stored id preferred, then provider/label match)
+                            const normalizeRegistrar = (value) =>
+                                String(value || "")
+                                    .toLowerCase()
+                                    .replace(/[^a-z0-9]/g, "");
+
+                            const provider = normalizeRegistrar(d.registrar);
+                            const registrars = data.registrarAccounts || [];
+
+                            const matchedRegistrar = registrars.find((r) => {
+                                const byId = String(r.id || "") === String(d.registrarAccountId || "");
+                                const providerMatch = provider && normalizeRegistrar(r.provider) === provider;
+                                const labelMatch = provider && normalizeRegistrar(r.label) === provider;
+                                return byId || providerMatch || labelMatch;
+                            });
+
+                            const internetBsFallback = provider === "internetbs"
+                                ? registrars.find((r) => normalizeRegistrar(r.provider) === "internetbs")
+                                : null;
+
+                            const accountId = d.registrarAccountId || matchedRegistrar?.id || internetBsFallback?.id || undefined;
                             if (!accountId) {
-                                const errMsg = "No matching registrar account found for this domain";
+                                const errMsg = "No matching registrar account found for this domain. Please check Registrar Accounts mapping.";
                                 flash(errMsg, "error");
                                 setActionMsg({ type: "error", msg: errMsg });
                                 setUpdatingNs(false);
@@ -987,7 +1051,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
 
                                 <div style={{ marginBottom: 16 }}>
                                     <div style={{ fontSize: 11, color: T.muted }}>Status</div>
-                                    <Badge color={d.status === "active" ? T.success : T.warning}>{d.status || "unknown"}</Badge>
+                                    <Badge style={{ background: `${d.status === "active" ? T.success : T.warning}18`, color: d.status === "active" ? T.success : T.warning, border: `1px solid ${d.status === "active" ? T.success : T.warning}44` }}>{d.status || "unknown"}</Badge>
                                 </div>
 
                                 {actionMsg && (
@@ -1034,9 +1098,9 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                                 Select Cloudflare account before adding this domain.
                                             </div>
                                         )}
-                                        <Btn onClick={handleAddToCloudflare} disabled={addingToCf} style={{ marginTop: 8, fontSize: 12 }}>
+                                        <Button onClick={handleAddToCloudflare} disabled={addingToCf} style={{ marginTop: 8, fontSize: 12 }}>
                                             {addingToCf ? "Adding..." : "Add to Cloudflare"}
-                                        </Btn>
+                                        </Button>
                                     </div>
                                 )}
 
@@ -1049,13 +1113,13 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     ) : (
                                         <div style={{ fontSize: 11, color: T.dim }}>Not set</div>
                                     )}
-                                    <Btn variant="ghost" onClick={handleUpdateNameservers} disabled={updatingNs} style={{ marginTop: 8, fontSize: 11 }}>
+                                    <Button variant="ghost"  onClick={handleUpdateNameservers} disabled={updatingNs} style={{ marginTop: 8, fontSize: 11 }}>
                                         {updatingNs ? "Updating..." : "Update Nameservers"}
-                                    </Btn>
+                                    </Button>
                                 </div>
 
                                 <div style={S.btnRow}>
-                                    <Btn onClick={() => setModal(null)}>Close</Btn>
+                                    <Button onClick={() => setModal(null)}>Close</Button>
                                 </div>
                             </Card>
                         </div>
@@ -1069,7 +1133,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 ═══════════════════════════════════════════════════════════ */}
             {tab === "accounts" && <>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    <Btn onClick={() => setModal("account")}>+ Add Account</Btn>
+                    <Button onClick={() => setModal("account")}>+ Add Account</Button>
                 </div>
 
                 {/* Account rows */}
@@ -1091,10 +1155,16 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         {acct.cardUuid ? (
                                             <span>
                                                 💳 ****{acct.cardLast4 || linkedCard?.card_last_4 || "?"}{" "}
-                                                <Badge color={
+                                                <Badge style={{ background: `${
                                                     (acct.cardStatus || linkedCard?.status) === "ACTIVE" ? T.success
                                                         : (acct.cardStatus || linkedCard?.status) === "BLOCKED" ? T.danger : T.warning
-                                                }>{acct.cardStatus || linkedCard?.status || "?"}</Badge>
+                                                }18`, color: 
+                                                    (acct.cardStatus || linkedCard?.status) === "ACTIVE" ? T.success
+                                                        : (acct.cardStatus || linkedCard?.status) === "BLOCKED" ? T.danger : T.warning
+                                                , border: `1px solid ${
+                                                    (acct.cardStatus || linkedCard?.status) === "ACTIVE" ? T.success
+                                                        : (acct.cardStatus || linkedCard?.status) === "BLOCKED" ? T.danger : T.warning
+                                                }44` }}>{acct.cardStatus || linkedCard?.status || "?"}</Badge>
                                             </span>
                                         ) : <span style={{ color: T.dim }}>No card</span>}
                                     </div>
@@ -1229,8 +1299,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         </select>
                                     </div>
                                     <div style={S.btnRow}>
-                                        <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-                                        <Btn onClick={() => {
+                                        <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
+                                        <Button onClick={() => {
                                             const selectedCard = lcCards.find(c => c.uuid === form.cardUuid);
                                             const updates = {
                                                 ...form,
@@ -1240,7 +1310,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                             upd("accounts", acct.id, updates);
                                             setModal(null);
                                             flash("Account updated");
-                                        }}>Save Changes</Btn>
+                                        }}>Save Changes</Button>
                                     </div>
                                 </Card>
                             </div>
@@ -1254,7 +1324,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 TAB: CF ACCOUNTS
                 ═══════════════════════════════════════════════════════════ */}
             {tab === "cf" && <>
-                <Btn onClick={() => setModal("cf-account")} style={{ marginBottom: 12 }}>+ Add Cloudflare Account</Btn>
+                <Button onClick={() => setModal("cf-account")} style={{ marginBottom: 12 }}>+ Add Cloudflare Account</Button>
                 {(!data.cfAccounts || data.cfAccounts.length === 0)
                     ? <div style={S.emptyState}>No Cloudflare accounts yet</div>
                     : data.cfAccounts.map(cf => (
@@ -1289,8 +1359,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
             {tab === "profiles" && <>
                 {/* Action buttons */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                    <Btn onClick={() => setModal("mlx-create")}>+ Create Profile</Btn>
-                    <Btn variant="ghost" onClick={async () => {
+                    <Button onClick={() => setModal("mlx-create")}>+ Create Profile</Button>
+                    <Button variant="ghost"  onClick={async () => {
                         setSyncing(true);
                         try {
                             const res = await multiloginApi.syncProfiles();
@@ -1299,21 +1369,21 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                             await refreshProfiles();
                         } catch (e) { flash(`Sync failed: ${e.message}`, "error"); }
                         finally { setSyncing(false); }
-                    }}>{syncing ? "Syncing..." : "\uD83D\uDD04 Sync from MLX"}</Btn>
-                    <Btn variant="ghost" onClick={() => {
+                    }}>{syncing ? "Syncing..." : "\uD83D\uDD04 Sync from MLX"}</Button>
+                    <Button variant="ghost"  onClick={() => {
                         setMlLoading(true);
                         refreshProfiles().finally(() => setMlLoading(false));
-                    }} style={{ fontSize: 11 }}>↻ Refresh</Btn>
-                    <Btn variant="danger" onClick={async () => {
+                    }} style={{ fontSize: 11 }}>↻ Refresh</Button>
+                    <Button variant="destructive"  onClick={async () => {
                         if (!confirm("Stop all running profiles?")) return;
                         const running = mlProfiles.filter(p => p.status === "running" || p.status === "started");
                         for (const p of running) {
                             const pid = p.uuid || p.id;
-                            await multiloginApi.stopProfile(pid).catch(() => {});
+                            await multiloginApi.stopProfile(pid).catch(() => { });
                         }
                         await refreshProfiles();
                         flash(`Stopped ${running.length} profiles`);
-                    }} style={{ fontSize: 11, marginLeft: "auto" }}>⏹ Stop All</Btn>
+                    }} style={{ fontSize: 11, marginLeft: "auto" }}>⏹ Stop All</Button>
                 </div>
 
                 {/* Unified profile list */}
@@ -1364,36 +1434,36 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         </div>
                                         <div style={{ flex: 1.5, display: "flex", gap: 3, justifyContent: "flex-end" }}>
                                             {isRunning ? (
-                                                <Btn variant="danger" onClick={() => {
+                                                <Button variant="destructive"  onClick={() => {
                                                     multiloginApi.stopProfile(pid).then(() => {
                                                         refreshProfiles();
                                                         flash("Profile stopped");
                                                     }).catch(e => flash(`Stop failed: ${e.message}`, "error"));
-                                                }} style={S.miniBtn}>Stop</Btn>
+                                                }} style={S.miniBtn}>Stop</Button>
                                             ) : (
-                                                <Btn variant="success" onClick={() => {
+                                                <Button variant="success" onClick={() => {
                                                     const fid = p.folder_id || settings.mlFolderId || "";
                                                     multiloginApi.startProfile(pid, fid).then((res) => {
                                                         if (res?.error) { flash(`Start failed: ${res.error}`, "error"); return; }
                                                         refreshProfiles();
                                                         flash("Profile started");
                                                     }).catch(e => flash(`Start failed: ${e.message}`, "error"));
-                                                }} style={S.miniBtn}>Start</Btn>
+                                                }} style={S.miniBtn}>Start</Button>
                                             )}
-                                            <Btn variant="ghost" onClick={() => {
+                                            <Button variant="ghost"  onClick={() => {
                                                 multiloginApi.cloneProfile(pid).then(() => {
                                                     refreshProfiles();
                                                     flash("Profile cloned");
                                                 }).catch(e => flash(`Clone failed: ${e.message}`, "error"));
-                                            }} style={S.miniBtn}>Clone</Btn>
-                                            <Btn variant="ghost" onClick={() => {
+                                            }} style={S.miniBtn}>Clone</Button>
+                                            <Button variant="ghost"  onClick={() => {
                                                 if (!confirm(`Delete profile "${p.name || pid}"?`)) return;
                                                 const folderId = p.folder_id || settings.mlFolderId || "";
                                                 multiloginApi.deleteProfiles([pid], folderId).then(() => {
                                                     refreshProfiles();
                                                     flash("Profile deleted");
                                                 }).catch(e => flash(`Delete failed: ${e.message}`, "error"));
-                                            }} style={{ ...S.miniBtn, color: T.danger }}>Del</Btn>
+                                            }} style={{ ...S.miniBtn, color: T.danger }}>Del</Button>
                                         </div>
                                     </div>
                                 );
@@ -1408,7 +1478,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                         { key: "name", flex: 2 },
                         { key: "proxyIp", render: i => i.proxyIp || i.proxyHost || "\u2014" },
                         { key: "browserType" },
-                        { key: "mlProfileId", render: i => i.mlProfileId ? <Badge color={T.primary}>ML: {i.mlProfileId.slice(0, 8)}...</Badge> : <span style={{ color: T.dim }}>Not linked</span> },
+                        { key: "mlProfileId", render: i => i.mlProfileId ? <Badge style={{ background: `${T.primary}18`, color: T.primary, border: `1px solid ${T.primary}44` }}>ML: {i.mlProfileId.slice(0, 8)}...</Badge> : <span style={{ color: T.dim }}>Not linked</span> },
                     ]} />
                 </>}
 
@@ -1500,8 +1570,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     </div>
 
                                     <div style={S.btnRow}>
-                                        <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-                                        <Btn disabled={creating} onClick={async () => {
+                                        <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
+                                        <Button disabled={creating} onClick={async () => {
                                             setCreating(true);
                                             try {
                                                 const folderId = settings.mlFolderId || "";
@@ -1547,7 +1617,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                             } finally {
                                                 setCreating(false);
                                             }
-                                        }}>{creating ? "Creating..." : "Create Profile"}</Btn>
+                                        }}>{creating ? "Creating..." : "Create Profile"}</Button>
                                     </div>
                                 </Card>
                             </div>
@@ -1563,11 +1633,11 @@ export function OpsCenter({ data, add, del, upd, settings }) {
             {tab === "payments" && <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <Btn onClick={() => setModal("lc-card")}>+ Create Card</Btn>
-                        <Btn variant="ghost" onClick={() => {
+                        <Button onClick={() => setModal("lc-card")}>+ Create Card</Button>
+                        <Button variant="ghost"  onClick={() => {
                             setLcLoading(true);
                             refreshCards().finally(() => setLcLoading(false));
-                        }} style={{ fontSize: 11 }}>🔄 Refresh</Btn>
+                        }} style={{ fontSize: 11 }}>🔄 Refresh</Button>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>LeadingCards Management</div>
                 </div>
@@ -1620,31 +1690,31 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     </div>
                                     {/* Status */}
                                     <div style={{ flex: 0.8 }}>
-                                        <Badge color={card.status === "ACTIVE" ? T.success : card.status === "BLOCKED" ? T.danger : T.warning}>{card.status}</Badge>
+                                        <Badge style={{ background: `${card.status === "ACTIVE" ? T.success : card.status === "BLOCKED" ? T.danger : T.warning}18`, color: card.status === "ACTIVE" ? T.success : card.status === "BLOCKED" ? T.danger : T.warning, border: `1px solid ${card.status === "ACTIVE" ? T.success : card.status === "BLOCKED" ? T.danger : T.warning}44` }}>{card.status}</Badge>
                                     </div>
                                     {/* Actions */}
                                     <div style={{ display: "flex", gap: 4 }}>
                                         {card.status === "ACTIVE" ? (
-                                            <Btn variant="ghost" onClick={() => {
+                                            <Button variant="ghost"  onClick={() => {
                                                 if (confirm("Block this card?")) {
                                                     leadingCardsApi.blockCard(card.uuid)
                                                         .then(() => { refreshCards(); flash("Card blocked"); })
                                                         .catch(e => flash(`Block failed: ${e.message}`, "error"));
                                                 }
-                                            }} style={{ ...S.miniBtn, color: T.danger }}>Block</Btn>
+                                            }} style={{ ...S.miniBtn, color: T.danger }}>Block</Button>
                                         ) : (
-                                            <Btn variant="ghost" onClick={() => {
+                                            <Button variant="ghost"  onClick={() => {
                                                 leadingCardsApi.activateCard(card.uuid)
                                                     .then(() => { refreshCards(); flash("Card activated"); })
                                                     .catch(e => flash(`Activate failed: ${e.message}`, "error"));
-                                            }} style={{ ...S.miniBtn, color: T.success }}>Activate</Btn>
+                                            }} style={{ ...S.miniBtn, color: T.success }}>Activate</Button>
                                         )}
-                                        <Btn variant="ghost" onClick={() => setChangingLimit({ uuid: card.uuid, value: card.limit || "" })}
-                                            style={{ ...S.miniBtn, color: T.primary }}>Limit</Btn>
-                                        <Btn variant="ghost" onClick={() => {
+                                        <Button variant="ghost"  onClick={() => setChangingLimit({ uuid: card.uuid, value: card.limit || "" })}
+                                            style={{ ...S.miniBtn, color: T.primary }}>Limit</Button>
+                                        <Button variant="ghost"  onClick={() => {
                                             setLcLoading(true);
                                             refreshCards().finally(() => setLcLoading(false));
-                                        }} style={{ ...S.miniBtn, color: T.muted }}>↻</Btn>
+                                        }} style={{ ...S.miniBtn, color: T.muted }}>↻</Button>
                                     </div>
                                 </div>
                             ))}
@@ -1655,7 +1725,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 <div style={{ marginTop: 24 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                         <div style={S.sectionTitle}>Recent Transactions</div>
-                        <Btn variant="ghost" onClick={() => {
+                        <Button variant="ghost"  onClick={() => {
                             const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
                             leadingCardsApi.getTransactions(fromDate)
                                 .then(res => {
@@ -1663,7 +1733,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     flash(`Loaded ${(res.results || res || []).length} transactions`);
                                 })
                                 .catch(e => flash(`Failed: ${e.message}`, "error"));
-                        }} style={{ fontSize: 11 }}>Load Transactions</Btn>
+                        }} style={{ fontSize: 11 }}>Load Transactions</Button>
                     </div>
                     {lcTransactions.length === 0
                         ? <div style={{ ...S.emptyState, fontSize: 11 }}>Click "Load Transactions" to fetch recent activity</div>
@@ -1719,8 +1789,8 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         <Inp value={form.comment} onChange={v => setForm({ ...form, comment: v })} placeholder="google-ads-account-X" />
                                     </div>
                                     <div style={S.btnRow}>
-                                        <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-                                        <Btn disabled={creating} onClick={async () => {
+                                        <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
+                                        <Button disabled={creating} onClick={async () => {
                                             setCreating(true);
                                             try {
                                                 await leadingCardsApi.createCard({
@@ -1738,7 +1808,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                             } finally {
                                                 setCreating(false);
                                             }
-                                        }}>{creating ? "Creating..." : "Create Card"}</Btn>
+                                        }}>{creating ? "Creating..." : "Create Card"}</Button>
                                     </div>
                                 </Card>
                             </div>
@@ -1760,7 +1830,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     : risks.map((r, i) => (
                         <Card key={i} style={{ padding: "12px 16px", marginBottom: 6, borderColor: RISK_COLORS[r.level] ? `${RISK_COLORS[r.level]}44` : T.border }}>
                             <span style={{ marginRight: 6 }}>{RISK_ICONS[r.category] || "⚠️"}</span>
-                            <Badge color={RISK_COLORS[r.level] || T.warning}>{r.level}</Badge>
+                            <Badge style={{ background: `${RISK_COLORS[r.level] || T.warning}18`, color: RISK_COLORS[r.level] || T.warning, border: `1px solid ${RISK_COLORS[r.level] || T.warning}44` }}>{r.level}</Badge>
                             <span style={{ marginLeft: 10, fontSize: 13 }}>{r.msg}</span>
                             {r.affectedIds && <span style={{ marginLeft: 8, fontSize: 10, color: T.dim }}>({r.affectedIds.length} affected)</span>}
                         </Card>
@@ -1776,7 +1846,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     <div style={{ marginBottom: 32 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                             <div style={S.sectionTitle}>☁️ Cloudflare Accounts</div>
-                            <Btn onClick={() => setModal("cf-account")}>+ Add CF Account</Btn>
+                            <Button onClick={() => setModal("cf-account")}>+ Add CF Account</Button>
                         </div>
                         {(!data.cfAccounts || data.cfAccounts.length === 0)
                             ? <div style={{ ...S.emptyState, marginBottom: 16 }}>No Cloudflare accounts yet</div>
@@ -1812,7 +1882,12 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                             <div style={S.sectionTitle}>🌐 Registrar Accounts</div>
-                            <Btn onClick={() => setModal("registrar-account")}>+ Add Registrar</Btn>
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <Button variant="ghost"  disabled={requestingIp} onClick={handleRequestIp}>
+                                    {requestingIp ? "..." : "Request IP"}
+                                </Button>
+                                <Button onClick={() => { setEditingReg(null); setModal("registrar-account"); }}>+ Add Registrar</Button>
+                            </div>
                         </div>
                         {(!data.registrarAccounts || data.registrarAccounts.length === 0)
                             ? <div style={S.emptyState}>No registrar accounts yet. Add one to register domains.</div>
@@ -1820,13 +1895,13 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                 <div key={reg.id} style={S.row}>
                                     <div style={{ flex: 1, fontWeight: 600, fontSize: 12 }}>{reg.label || reg.provider || "\u2014"}</div>
                                     <div style={{ flex: 1, fontSize: 11 }}>
-                                        <Badge color={T.primary}>{reg.provider || "internetbs"}</Badge>
+                                        <Badge style={{ background: `${T.primary}18`, color: T.primary, border: `1px solid ${T.primary}44` }}>{reg.provider || "internetbs"}</Badge>
                                     </div>
                                     <div style={{ flex: 2, fontSize: 11, fontFamily: "monospace" }}>
                                         {reg.api_key ? `•••${reg.api_key.slice(-4)}` : "\u2014"}
                                     </div>
                                     <div style={{ flex: 1, fontSize: 11 }}>
-                                        {reg.status === "active" ? <Badge color={T.success}>Active</Badge> : <Badge color={T.dim}>{reg.status || "\u2014"}</Badge>}
+                                        {reg.status === "active" ? <Badge style={{ background: `${T.success}18`, color: T.success, border: `1px solid ${T.success}44` }}>Active</Badge> : <Badge style={{ background: `${T.dim}18`, color: T.dim, border: `1px solid ${T.dim}44` }}>{reg.status || "\u2014"}</Badge>}
                                     </div>
                                     <div style={{ display: "flex", gap: 4 }}>
                                         <button
@@ -1836,10 +1911,16 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                         >
                                             {testingRegId === reg.id ? "Testing..." : "Test"}
                                         </button>
+                                        <button
+                                            onClick={() => { setEditingReg(reg); setModal("registrar-account"); }}
+                                            style={{ ...S.miniBtn, background: `${T.primary}22`, color: T.primary, border: "none", borderRadius: 5, cursor: "pointer" }}
+                                        >
+                                            Edit
+                                        </button>
                                         <button onClick={() => {
                                             if (confirm(`Delete "${reg.label}"?`)) {
                                                 // Remove via API
-                                                api.del(`/registrar-accounts/${reg.id}`).catch(() => {});
+                                                api.del(`/registrar-accounts/${reg.id}`).catch(() => { });
                                                 // Update local state via parent del function
                                                 del("registrar-accounts", reg.id);
                                                 flash("Registrar account deleted");
@@ -2050,13 +2131,13 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                 }}
                             />
                             <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
-                                <Btn
+                                <Button
                                     onClick={handleRunQuery}
                                     disabled={loading}
                                     style={{ minWidth: 80 }}
                                 >
                                     {loading ? "..." : "▶ Run Query"}
-                                </Btn>
+                                </Button>
                             </div>
                         </Card>
 
@@ -2213,7 +2294,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
                                     <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Account Stack Created!</h3>
                                     <p style={{ fontSize: 13, color: T.muted, marginBottom: 20 }}>Card, profile, and account have been created and linked.</p>
-                                    <Btn onClick={() => { setModal(null); setWizardStep(0); setWizardData({}); }}>Close</Btn>
+                                    <Button onClick={() => { setModal(null); setWizardStep(0); setWizardData({}); }}>Close</Button>
                                 </Card>
                             </div>
                         );
@@ -2358,14 +2439,14 @@ export function OpsCenter({ data, add, del, upd, settings }) {
 
                                 {/* Navigation */}
                                 <div style={{ ...S.btnRow, marginTop: 20 }}>
-                                    <Btn variant="ghost" onClick={() => { setModal(null); setWizardStep(0); setWizardData({}); }}>Cancel</Btn>
-                                    {step > 0 && <Btn variant="ghost" onClick={() => setStep(step - 1)}>Back</Btn>}
+                                    <Button variant="ghost"  onClick={() => { setModal(null); setWizardStep(0); setWizardData({}); }}>Cancel</Button>
+                                    {step > 0 && <Button variant="ghost"  onClick={() => setStep(step - 1)}>Back</Button>}
                                     {step < 3 ? (
-                                        <Btn onClick={() => { setWd({ ...wd }); setStep(step + 1); }}>Next</Btn>
+                                        <Button onClick={() => { setWd({ ...wd }); setStep(step + 1); }}>Next</Button>
                                     ) : (
-                                        <Btn disabled={busy} onClick={handleFinish}>
+                                        <Button disabled={busy} onClick={handleFinish}>
                                             {busy ? "Creating..." : "Create Everything"}
-                                        </Btn>
+                                        </Button>
                                     )}
                                 </div>
                             </Card>
@@ -2436,10 +2517,10 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     <Inp value={form.label} onChange={v => setForm({ ...form, label: v })} placeholder="Main CF Account" />
                                 </div>
                                 <div style={S.fieldWrap}>
-                                    <label style={S.label}>Account ID <span style={{color: T.danger}}>*</span></label>
+                                    <label style={S.label}>Account ID <span style={{ color: T.danger }}>*</span></label>
                                     <Inp value={form.account_id} onChange={v => setForm({ ...form, account_id: v })} placeholder="32-character hex ID" />
                                     <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
-                                        Found in Cloudflare dashboard → URL: /accounts/<strong style={{color: T.primary}}>YourAccountID</strong>
+                                        Found in Cloudflare dashboard → URL: /accounts/<strong style={{ color: T.primary }}>YourAccountID</strong>
                                     </div>
                                 </div>
                                 <div style={S.fieldWrap}>
@@ -2447,15 +2528,15 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                     <Inp value={form.email} onChange={v => setForm({ ...form, email: v })} placeholder="cf@example.com" />
                                 </div>
                                 <div style={S.fieldWrap}>
-                                    <label style={S.label}>API Token (Global Key) <span style={{color: T.danger}}>*</span></label>
+                                    <label style={S.label}>API Token (Global Key) <span style={{ color: T.danger }}>*</span></label>
                                     <Inp value={form.api_key} onChange={v => setForm({ ...form, api_key: v })} placeholder="••••" type="password" />
                                     <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
                                         Needs Zone:Zone, DNS:Edit, Zone:Read permissions
                                     </div>
                                 </div>
                                 <div style={S.btnRow}>
-                                    <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-                                    <Btn disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save"}</Btn>
+                                    <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
+                                    <Button disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save"}</Button>
                                 </div>
                             </Card>
                         </div>
@@ -2469,7 +2550,10 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                 ═══════════════════════════════════════════════════════════ */}
             {modal === "registrar-account" && (() => {
                 const RegistrarAccountModal = () => {
-                    const [form, setForm] = useState({ provider: "internetbs", label: "", api_key: "", secret_key: "" });
+                    const [form, setForm] = useState(editingReg
+                        ? { provider: editingReg.provider, label: editingReg.label, api_key: editingReg.api_key, secret_key: editingReg.secret_key }
+                        : { provider: "internetbs", label: "", api_key: "", secret_key: "" }
+                    );
                     const [saving, setSaving] = useState(false);
                     const [testing, setTesting] = useState(false);
                     const [testResult, setTestResult] = useState(null);
@@ -2512,10 +2596,14 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                         }
                         setSaving(true);
                         try {
-                            const newAccount = { id: uid(), ...form };
-                            // Save via centralized add() flow (updates state + persists through App handler)
-                            add("registrar-accounts", newAccount);
-                            flash("Registrar account added");
+                            if (editingReg) {
+                                upd("registrar-accounts", editingReg.id, { ...form });
+                                flash("Registrar account updated");
+                            } else {
+                                const newAccount = { id: uid(), ...form };
+                                add("registrar-accounts", newAccount);
+                                flash("Registrar account added");
+                            }
                             setModal(null);
                         } catch (e) {
                             flash(`Failed: ${e.message}`, "error");
@@ -2527,7 +2615,9 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                     return (
                         <div style={S.overlay}>
                             <Card style={{ width: 460, padding: 24, animation: "fadeIn .2s" }}>
-                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Add Registrar Account</h3>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+                                    {editingReg ? "Edit Registrar Account" : "Add Registrar Account"}
+                                </h3>
                                 <div style={S.fieldWrap}>
                                     <label style={S.label}>Provider</label>
                                     <select value={form.provider} onChange={e => setForm({ ...form, provider: e.target.value })} style={S.select}>
@@ -2557,11 +2647,11 @@ export function OpsCenter({ data, add, del, upd, settings }) {
                                 )}
 
                                 <div style={S.btnRow}>
-                                    <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-                                    <Btn variant="ghost" disabled={testing} onClick={handleTest}>
+                                    <Button variant="ghost"  onClick={() => setModal(null)}>Cancel</Button>
+                                    <Button variant="ghost"  disabled={testing} onClick={handleTest}>
                                         {testing ? "Testing..." : "Test Connection"}
-                                    </Btn>
-                                    <Btn disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save"}</Btn>
+                                    </Button>
+                                    <Button disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save"}</Button>
                                 </div>
                             </Card>
                         </div>
@@ -2572,3 +2662,5 @@ export function OpsCenter({ data, add, del, upd, settings }) {
         </div>
     );
 }
+
+
