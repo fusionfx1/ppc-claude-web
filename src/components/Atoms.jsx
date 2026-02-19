@@ -1,3 +1,16 @@
+/**
+ * @deprecated All exports have been migrated to src/components/ui/
+ * - Card     → ui/card.tsx
+ * - Inp      → ui/input-field.tsx (InputField)
+ * - Sel      → ui/input-field.tsx (SelectField)
+ * - Btn      → ui/button.tsx (Button)
+ * - Badge    → ui/badge.tsx (Badge)
+ * - Dot      → ui/dot.tsx
+ * - MockPhone → ui/mock-phone.tsx
+ * - Field    → ui/field.tsx
+ * - Toast    → ui/toast.tsx
+ * This file is kept for reference only and is safe to delete.
+ */
 import React from "react";
 import { THEME as T } from "../constants";
 
