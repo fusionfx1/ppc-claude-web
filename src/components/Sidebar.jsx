@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { THEME as T } from "../constants";
-
-const APP_VERSION = "2.1.0";
+import { APP_VERSION } from "../constants";
 
 const CHANGELOG = [
     {
@@ -46,8 +45,9 @@ export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, togg
     const items = [
         { id: "dashboard", icon: "📊", label: "Dashboard" },
         { id: "sites", icon: "🌐", label: "My Sites", badge: siteCount },
-        { id: "create", icon: "➕", label: "Create LP", action: startCreate },
-        { id: "variant", icon: "🎨", label: "Variant Studio" },
+        { id: "template-editor", icon: "🎨", label: "Template Editor" },
+        { id: "create", icon: "⚡", label: "Astro Wizard", action: startCreate },
+        { id: "variant", icon: "🧪", label: "Variant Studio" },
         { id: "ops", icon: "🏢", label: "Ops Center" },
         { id: "deploys", icon: "🚀", label: "Deploys" },
         { id: "docs", icon: "📚", label: "API Docs", external: true, href: "/docs" },
@@ -81,7 +81,16 @@ export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, togg
                         const ButtonWrapper = it.external ? 'a' : 'button';
                         const buttonProps = it.external ? { href: it.href, target: "_blank", rel: "noopener noreferrer" } : {};
                         return (
-                            <ButtonWrapper key={it.id} onClick={() => !it.external && (it.action ? it.action() : setPage(it.id))} {...buttonProps} style={{
+                            <ButtonWrapper key={it.id} onClick={() => {
+                                if (it.external) return;
+                                // Interaction debug
+                                console.log("Sidebar click:", it.id);
+                                if (it.action) {
+                                    it.action();
+                                } else {
+                                    setPage(it.id);
+                                }
+                            }} {...buttonProps} style={{
                                 width: "100%", display: "flex", alignItems: "center", gap: 10,
                                 padding: collapsed ? "10px 0" : "9px 12px", justifyContent: collapsed ? "center" : "flex-start",
                                 marginBottom: 2, border: "none", borderRadius: 7,

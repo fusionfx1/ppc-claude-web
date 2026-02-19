@@ -1,3 +1,5 @@
+export const APP_VERSION = "2.1.0";
+
 export const LOAN_TYPES = [
     { id: "personal", label: "Personal Loans", icon: "💳" },
     { id: "installment", label: "Installment Loans", icon: "📋" },
@@ -84,6 +86,12 @@ export const SITE_TEMPLATES = [
         name: "PDL Loans V1",
         badge: "Popular",
         description: "Payday/PDL loan template with hero form, trust badges, calculator, FAQ - Zero-JS architecture",
+    },
+    {
+        id: "lander-core",
+        name: "PDL Loans V2",
+        badge: "Advanced",
+        description: "High-conversion bear-style template with interactive form and premium trust signals",
     },
 ];
 

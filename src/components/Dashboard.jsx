@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { THEME as T, COLORS } from "../constants";
+import { THEME as T, COLORS, APP_VERSION } from "../constants";
 import { hsl } from "../utils";
 import { detectRisks } from "../utils/risk-engine";
 import { Card, Btn, Badge, Dot } from "./Atoms";
@@ -7,16 +7,65 @@ import { Card, Btn, Badge, Dot } from "./Atoms";
 export function Dashboard({ sites, stats, ops, setPage, startCreate, settings = {}, apiOk, neonOk }) {
     const recent = sites.slice(0, 5);
     const risks = useMemo(() => detectRisks(ops), [ops]);
+    const buildMode = String(import.meta.env?.MODE || "unknown");
+    const codeMarker = String(
+        import.meta.env?.VITE_GIT_SHA
+        || import.meta.env?.VITE_COMMIT_SHA
+        || import.meta.env?.VITE_BUILD_TIME
+        || "local-dev"
+    );
 
     return (
         <div style={{ animation: "fadeIn .3s ease" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
                 <div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Dashboard</h1>
+                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                        Dashboard
+                        <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: 0.4,
+                            textTransform: "uppercase",
+                            color: T.primary,
+                            background: `${T.primary}1f`,
+                            border: `1px solid ${T.primary}66`,
+                            borderRadius: 999,
+                            padding: "2px 8px",
+                        }}>
+                            v{APP_VERSION}
+                        </span>
+                    </h1>
                     <p style={{ color: T.muted, fontSize: 13, marginTop: 2 }}>LP portfolio overview — Elastic Credits Engine</p>
+                    <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <Badge color={T.success}>Current Code</Badge>
+                        <span style={{ fontSize: 11, color: T.muted }}>
+                            mode: <strong style={{ color: T.text }}>{buildMode}</strong>
+                        </span>
+                        <span style={{ fontSize: 11, color: T.muted }}>
+                            marker: <strong style={{ color: T.text }}>{codeMarker}</strong>
+                        </span>
+                    </div>
                 </div>
                 <Btn onClick={startCreate}>➕ Create New LP</Btn>
             </div>
+
+            <Card style={{
+                marginBottom: 16,
+                border: `1px solid ${T.success}66`,
+                background: `${T.success}12`,
+                padding: "12px 14px",
+            }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.success, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6 }}>
+                    Current Code Signature
+                </div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }}>
+                    <span><strong>version:</strong> {APP_VERSION}</span>
+                    <span><strong>mode:</strong> {buildMode}</span>
+                    <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>
+                        <strong>marker:</strong> {codeMarker}
+                    </span>
+                </div>
+            </Card>
 
             {/* Metrics */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, marginBottom: 24 }}>
