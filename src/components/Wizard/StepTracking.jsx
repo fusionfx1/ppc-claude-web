@@ -66,7 +66,11 @@ export function StepTracking({ c, u }) {
             {/* Form Embed Code (Advanced) - Always visible for custom configurations */}
             <Field label="Form Embed Code (Advanced)" help="Raw embed code — tracking callbacks NOT auto-added">
                 <textarea
-                    value={c.formEmbed || `const _lg_form_init_ = {
+                    value={c.formEmbed || `<script src="https://forms.leadsgate.com/form/embed/${c.aid || "14881"}"></script>
+<div id="leadsgate-form-container"></div>
+
+<script>
+const _lg_form_init_ = {
     aid: "${c.aid || "14881"}",
     template: "fresh",
     hooks: {
@@ -89,7 +93,8 @@ export function StepTracking({ c, u }) {
             console.log("Lead finished:", data.leadId, data.price);
         }
     }
-};`}
+};
+</script>`}
                     onChange={e => u("formEmbed", e.target.value)}
                     style={{
                         width: "100%", minHeight: 120, padding: "10px 12px",
