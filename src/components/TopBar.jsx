@@ -4,34 +4,20 @@ import { Dot } from "./Atoms";
 
 export function TopBar({ stats, settings, deploys, apiOk, neonOk, onReconnectNeon }) {
     return (
-        <div style={{
-            height: 48, borderBottom: `1px solid ${T.border}`, display: "flex",
-            alignItems: "center", justifyContent: "space-between", padding: "0 28px",
-            background: "rgba(11,13,20,.85)", backdropFilter: "blur(12px)",
-            position: "sticky", top: 0, zIndex: 50,
-        }}>
-            <div style={{ fontSize: 12, color: T.muted }}>
-                Builds: <b style={{ color: T.text }}>{stats.builds}</b>
-                <span style={{ margin: "0 10px", color: T.border }}>│</span>
-                Cost: <b style={{ color: T.accent }}>${stats.spend.toFixed(2)}</b>
-                <span style={{ margin: "0 10px", color: T.border }}>│</span>
-                Deployed: <b style={{ color: T.success }}>{deploys?.length || 0}</b>
+        <div className="h-12 border-b border-[hsl(var(--border))] flex items-center justify-between px-7 bg-[rgba(11,13,20,.85)] backdrop-blur-md sticky top-0 z-50">
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                Builds: <b className="text-[hsl(var(--foreground))]">{stats.builds}</b>
+                <span className="mx-2.5 text-[hsl(var(--border))]">│</span>
+                Cost: <b className="text-[hsl(var(--accent))]">${stats.spend.toFixed(2)}</b>
+                <span className="mx-2.5 text-[hsl(var(--border))]">│</span>
+                Deployed: <b className="text-[hsl(var(--success))]">{deploys?.length || 0}</b>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div className="flex items-center gap-3">
                 <Dot c={neonOk ? T.success : T.warning} label={neonOk ? "Neon ✓" : apiOk ? "API ✓" : "Local"} />
                 {!neonOk && settings.neonUrl && (
                     <button
                         onClick={onReconnectNeon}
-                        style={{
-                            fontSize: 11,
-                            padding: "4px 8px",
-                            background: T.primary,
-                            color: "white",
-                            border: "none",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                            transition: "all .2s"
-                        }}
+                        className="text-[11px] px-2 py-1 bg-[hsl(var(--primary))] text-white border-none rounded cursor-pointer transition-all hover:opacity-90"
                         title="Reconnect to Neon database"
                     >
                         Reconnect
