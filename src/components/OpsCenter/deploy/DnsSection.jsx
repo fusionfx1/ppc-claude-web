@@ -10,7 +10,8 @@
 
 import { useState, useEffect } from "react";
 import { THEME as T, DNS_TEMPLATES } from "../../../constants";
-import { Card, Btn } from "../../Atoms";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
 import cloudflareZone from "../../../services/cloudflare-zone";
 import cloudflareDns from "../../../services/cloudflare-dns";
 import { DnsRecordModal } from "./DnsRecordModal";
@@ -265,21 +266,21 @@ export function DnsSection({ cfAccounts, onStatusMessage }) {
                     </div>
                 </div>
                 <div style={S.row}>
-                    <Btn
+                    <Button
                         variant={showTemplates ? "primary" : "ghost"}
                         size="sm"
                         onClick={() => setShowTemplates(!showTemplates)}
                     >
                         {showTemplates ? "Hide Templates" : "Use Template"}
-                    </Btn>
+                    </Button>
                     {selectedZone && (
-                        <Btn
-                            variant="ghost"
+                        <Button variant="ghost"
+                            
                             size="sm"
                             onClick={checkPropagation}
                         >
                             ↻ Check Propagation
-                        </Btn>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -470,14 +471,14 @@ export function DnsSection({ cfAccounts, onStatusMessage }) {
 
                     {/* Add Record Button */}
                     <div style={{ padding: 12, borderTop: `1px solid ${T.border}` }}>
-                        <Btn
+                        <Button
                             variant="primary"
                             size="sm"
                             onClick={handleAddRecord}
                             disabled={loadingRecords}
                         >
                             + Add DNS Record
-                        </Btn>
+                        </Button>
                     </div>
                 </Card>
             )}
@@ -498,4 +499,5 @@ export function DnsSection({ cfAccounts, onStatusMessage }) {
         </div>
     );
 }
+
 

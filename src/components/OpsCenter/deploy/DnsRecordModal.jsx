@@ -6,7 +6,9 @@
 
 import { useState } from "react";
 import { THEME as T, DNS_RECORD_TYPES, DNS_TTL_OPTIONS } from "../../../constants";
-import { Card, Btn, Inp } from "../../Atoms";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
+import { InputField as Inp } from "../../ui/input-field";
 
 const S = {
     overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" },
@@ -278,15 +280,16 @@ export function DnsRecordModal({ mode, record, zoneId, zoneName, cfAccountId, cf
 
                 {/* Buttons */}
                 <div style={S.btnRow}>
-                    <Btn variant="ghost" onClick={onCancel} disabled={saving}>
+                    <Button variant="ghost"  onClick={onCancel} disabled={saving}>
                         Cancel
-                    </Btn>
-                    <Btn onClick={handleSave} disabled={saving}>
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving}>
                         {saving ? "Saving..." : isEdit ? "Update Record" : "Add Record"}
-                    </Btn>
+                    </Button>
                 </div>
             </Card>
         </div>
     );
 }
+
 

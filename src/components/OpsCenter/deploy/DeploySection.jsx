@@ -10,7 +10,8 @@
 
 import { useState, useEffect } from "react";
 import { THEME as T, DEPLOY_TARGETS, DEPLOY_ENVIRONMENTS } from "../../../constants";
-import { Card, Btn } from "../../Atoms";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
 import { deployTo, getAvailableTargets, saveDeployConfig, getDeployConfig } from "../../../utils/deployers";
 import cloudflareDns from "../../../services/cloudflare-dns";
 import { generateHtmlByTemplate, generateApplyPageByTemplate } from "../../../utils/template-router";
@@ -426,7 +427,7 @@ export function DeploySection({ domains, settings, cfAccounts = [], onDeploy, on
 
             {/* Deploy Button */}
             {selectedDomainId && selectedTarget && !isDeploying && (
-                <Btn
+                <Button
                     variant="primary"
                     size="lg"
                     onClick={handleDeploy}
@@ -434,9 +435,10 @@ export function DeploySection({ domains, settings, cfAccounts = [], onDeploy, on
                     style={{ width: "100%", padding: 16 }}
                 >
                     Deploy to {DEPLOY_TARGETS.find(t => t.id === selectedTarget)?.label}
-                </Btn>
+                </Button>
             )}
         </div>
     );
 }
+
 

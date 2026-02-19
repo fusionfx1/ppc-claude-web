@@ -7,7 +7,7 @@ import { uid, now, LS } from "./utils";
 // Component Imports
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { Toast } from "./components/Atoms";
+import { Toast } from "./components/ui/toast";
 import { Dashboard } from "./components/Dashboard";
 import { Sites } from "./components/Sites";
 import { Wizard } from "./components/Wizard";
@@ -15,6 +15,7 @@ import { VariantStudio } from "./components/VariantStudio";
 import { OpsCenter } from "./components/OpsCenter";
 import { Settings } from "./components/Settings";
 import { DeployHistory } from "./components/DeployHistory";
+import { TemplateEditor } from "./components/TemplateEditor";
 
 // Neon connection string — stored in settings or hardcoded for now
 const NEON_URL = import.meta.env.PUBLIC_NEON_URL || "";
@@ -36,10 +37,10 @@ export default function App() {
 
   useEffect(() => {
     bootApp();
-    
+
     // Set up visibility handler for Neon reconnection
     const cleanupVisibility = db.setupVisibilityHandler();
-    
+
     return () => {
       cleanupVisibility?.();
     };
@@ -82,9 +83,8 @@ export default function App() {
               // Migrate: add templateId to old sites that don't have it
               const migratedSites = neonSites.map(s => ({
                 ...s,
-                templateId: s.templateId || "classic"  // Default to classic for old sites
+                templateId: s.templateId || "classic"
               }));
-              console.log("[App] Migrated sites:", migratedSites.map(s => ({ id: s.id, brand: s.brand, templateId: s.templateId })));
               setSites(migratedSites);
             } else {
               // First time: sync localStorage sites to Neon
@@ -150,39 +150,36 @@ export default function App() {
     setLoading(false);
   }
 
-  // Connection recovery function - can be called manually or automatically
   const recoverNeonConnection = async () => {
     const localSettings = LS.get("settings") || {};
     const neonConnStr = NEON_URL || localSettings.neonUrl || "";
-    
+
     if (neonConnStr && neonConnStr.includes("@") && !neonConnStr.includes("ep-xxx")) {
-      console.log("[App] Attempting Neon connection recovery");
       const reconnected = db.forceReconnect();
       if (reconnected) {
         const pong = await db.ping();
         setNeonOk(pong);
         if (pong) {
-          // Reload data from Neon after reconnection
           const [neonSettings, neonSites, neonDeploys] = await Promise.all([
             db.loadSettings(),
             db.loadSites(),
             db.loadDeploys(),
           ]);
-          
+
           if (neonSettings) {
             const merged = { ...neonSettings, ...localSettings };
             setSettings(merged);
             LS.set("settings", merged);
           }
-          
+
           if (neonSites?.length > 0) {
             setSites(neonSites);
           }
-          
+
           if (neonDeploys?.length > 0) {
             setDeploys(neonDeploys);
           }
-          
+
           notify("Neon connection restored!");
           return true;
         }
@@ -207,45 +204,120 @@ export default function App() {
   };
 
   const addSite = async (site) => {
-    console.log("[App] addSite called with:", { id: site.id, brand: site.brand, templateId: site.templateId, _editMode: site._editMode });
     if (site._editMode) {
       // Update existing site (redeploy)
       const { _editMode, ...siteData } = site;
       setSites(p => p.map(s => s.id === siteData.id ? { ...s, ...siteData, updatedAt: now() } : s));
-      
-      if (neonOk) db.saveSite(siteData).catch(() => {});
-      else if (apiOk) api.put(`/sites/${siteData.id}`, siteData).catch(() => {});
+
+      if (neonOk) db.saveSite(siteData).catch(() => { });
+      else if (apiOk) api.put(`/sites/${siteData.id}`, siteData).catch(() => { });
 
       notify(`${siteData.brand} updated!`);
     } else {
       // New site
-      setSites(p => {
-        console.log("[App] setSites - adding new site with templateId:", site.templateId);
-        return [site, ...p];
-      });
+      setSites(p => [site, ...p]);
       setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
 
       // Wait for save to complete before navigating
-      if (neonOk) await db.saveSite(site).catch(() => {});
-      else if (apiOk) await api.post("/sites", site).catch(() => {});
+      if (neonOk) await db.saveSite(site).catch(() => { });
+      else if (apiOk) await api.post("/sites", site).catch(() => { });
 
       notify(`${site.brand} created!`);
     }
     setPage("sites");
   };
 
+  // Quick fix function to update templateId
+  const updateSiteTemplate = async (siteId, newTemplateId) => {
+    const site = sites.find(s => s.id === siteId);
+    if (!site) return false;
+
+    const updatedSite = { ...site, templateId: newTemplateId, updatedAt: now() };
+    setSites(p => p.map(s => s.id === siteId ? updatedSite : s));
+
+    if (neonOk) {
+      const success = await db.saveSite(updatedSite);
+      if (success) {
+        // Force refresh from database to ensure UI sync
+        const freshSites = await db.loadSites();
+        if (freshSites) {
+          setSites(freshSites);
+        }
+        notify(`Template updated to ${newTemplateId}!`);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Force refresh sites from database
+  const refreshSitesFromDB = async () => {
+    if (neonOk) {
+      const freshSites = await db.loadSites();
+      if (freshSites) {
+        setSites(freshSites);
+        console.log("[App] Sites refreshed from database");
+        // Debug: show templateId for PlainGreenLoans2026
+        const targetSite = freshSites.find(s => s.id === "d28533");
+        if (targetSite) {
+          console.log("[App] PlainGreenLoans2026 templateId in DB:", targetSite.templateId);
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Force update templateId with debug
+  const forceUpdateTemplate = async (siteId, newTemplateId) => {
+    console.log(`[App] Force updating ${siteId} to ${newTemplateId}`);
+
+    if (neonOk) {
+      // Get current site data
+      const currentSites = await db.loadSites();
+      const currentSite = currentSites?.find(s => s.id === siteId);
+
+      if (currentSite) {
+        console.log("[App] Current site data:", {
+          id: currentSite.id,
+          templateId: currentSite.templateId,
+          brand: currentSite.brand
+        });
+
+        // Update with new templateId
+        const updatedSite = { ...currentSite, templateId: newTemplateId, updatedAt: now() };
+        const success = await db.saveSite(updatedSite);
+
+        if (success) {
+          console.log(`[App] ✅ Template updated to ${newTemplateId}`);
+
+          // Verify the update
+          const verifySites = await db.loadSites();
+          const verifySite = verifySites?.find(s => s.id === siteId);
+          console.log("[App] Verification - templateId now:", verifySite?.templateId);
+
+          // Refresh UI
+          setSites(verifySites || []);
+          notify(`Template force updated to ${newTemplateId}!`);
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   const delSite = (id) => {
     // Find the site before deleting (to match domain in ops)
     const site = sites.find(s => s.id === id);
-    
+
     setSites(p => p.filter(s => s.id !== id));
 
-    if (neonOk) db.deleteSite(id).catch(() => {});
-    else if (apiOk) api.del(`/sites/${id}`).catch(() => {});
+    if (neonOk) db.deleteSite(id).catch(() => { });
+    else if (apiOk) api.del(`/sites/${id}`).catch(() => { });
 
     // Also remove matching domain from OpsCenter
     if (site) {
-      const matchingDomain = (ops.domains || []).find(d => 
+      const matchingDomain = (ops.domains || []).find(d =>
         d.id === id || d.domain === site.domain || d.siteId === id
       );
       if (matchingDomain) {
@@ -267,9 +339,9 @@ export default function App() {
     if (!updatedSite) return;
 
     if (neonOk) {
-      await db.saveSite(updatedSite).catch(() => {});
+      await db.saveSite(updatedSite).catch(() => { });
     } else if (apiOk) {
-      await api.put(`/sites/${id}`, updates).catch(() => {});
+      await api.put(`/sites/${id}`, updates).catch(() => { });
     }
 
     notify("Site updated");
@@ -278,8 +350,8 @@ export default function App() {
   const addDeploy = (d) => {
     setDeploys(p => [d, ...p].slice(0, 100));
 
-    if (neonOk) db.saveDeploy(d).catch(() => {});
-    else if (apiOk) api.post("/deploys", d).catch(() => {});
+    if (neonOk) db.saveDeploy(d).catch(() => { });
+    else if (apiOk) api.post("/deploys", d).catch(() => { });
   };
 
   const toOpsStateKey = (coll) => {
@@ -331,7 +403,7 @@ export default function App() {
     }));
     if (opts.persist !== false) {
       const endpoint = toOpsEndpoint(coll);
-      api.post(endpoint, apiPayload).catch(() => {});
+      api.post(endpoint, apiPayload).catch(() => { });
     }
   };
 
@@ -343,7 +415,7 @@ export default function App() {
       logs: [{ id: uid(), msg: `Deleted: ${item?.label || item?.domain || id}`, ts: now() }, ...p.logs].slice(0, 200),
     }));
     const endpoint = toOpsEndpoint(coll, id);
-    api.del(endpoint).catch(() => {});
+    api.del(endpoint).catch(() => { });
   };
 
   const opsUpd = (coll, id, u, opts = {}) => {
@@ -422,6 +494,16 @@ export default function App() {
         <div style={{ fontSize: 48, marginBottom: 12, animation: "pulse 1.5s infinite" }}>⚡</div>
         <div style={{ fontSize: 18, fontWeight: 700 }}>LP Factory V2</div>
         <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>Loading...</div>
+
+        {/* Safety bypass if boot hangs */}
+        <div style={{ marginTop: 24 }}>
+          <button
+            onClick={() => setLoading(false)}
+            style={{ background: "none", border: `1px solid ${T.border}`, color: T.muted, padding: "6px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}
+          >
+            Skip Loading (Bypass Hang)
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -439,7 +521,8 @@ export default function App() {
         <TopBar stats={stats} settings={settings} deploys={deploys} apiOk={apiOk} neonOk={neonOk} onReconnectNeon={recoverNeonConnection} />
         <div style={{ padding: "24px 28px" }}>
           {page === "dashboard" && <Dashboard sites={sites} stats={stats} ops={ops} setPage={setPage} startCreate={startCreate} settings={settings} apiOk={apiOk} neonOk={neonOk} />}
-          {page === "sites" && <Sites sites={sites} del={delSite} notify={notify} startCreate={startCreate} settings={settings} addDeploy={addDeploy} />}
+          {page === "sites" && <Sites sites={sites} del={delSite} notify={notify} startCreate={startCreate} settings={settings} addDeploy={addDeploy} ops={ops} />}
+          {page === "template-editor" && <TemplateEditor notify={notify} />}
           {page === "create" && wizData && <Wizard config={wizData} setConfig={setWizData} addSite={addSite} setPage={setPage} settings={settings} notify={notify} />}
           {page === "variant" && <VariantStudio notify={notify} sites={sites} addSite={addSite} registry={registry} setRegistry={setRegistry} apiOk={apiOk} />}
           {page === "ops" && <OpsCenter data={ops} add={opsAdd} del={opsDel} upd={opsUpd} settings={settings} />}

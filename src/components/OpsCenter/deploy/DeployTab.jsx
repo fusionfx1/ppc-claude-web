@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { THEME as T } from "../../../constants";
-import { Card, Btn } from "../../Atoms";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
 import { QuickActionsPanel } from "./QuickActionsPanel";
 import { DnsSection } from "./DnsSection";
 import { DeploySection } from "./DeploySection";
@@ -173,4 +174,5 @@ export function DeployTab({ data, settings, add, del, upd, notify }) {
         </div>
     );
 }
+
 

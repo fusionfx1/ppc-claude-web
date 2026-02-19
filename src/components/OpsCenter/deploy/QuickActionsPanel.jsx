@@ -6,7 +6,8 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { THEME as T } from "../../../constants";
-import { Card, Btn } from "../../Atoms";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
 import { deployTo } from "../../../utils/deployers";
 import cloudflareZone from "../../../services/cloudflare-zone";
 import cloudflareDns from "../../../services/cloudflare-dns";
@@ -200,22 +201,22 @@ function QuickActionWizard({ wizard, domains, settings, cfAccounts, onCancel, on
 
                 {/* Actions */}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
-                    <Btn variant="ghost" onClick={onCancel} disabled={loading}>
+                    <Button variant="ghost"  onClick={onCancel} disabled={loading}>
                         Cancel
-                    </Btn>
+                    </Button>
                     {step > 1 && (
-                        <Btn variant="ghost" onClick={handleBack} disabled={loading}>
+                        <Button variant="ghost"  onClick={handleBack} disabled={loading}>
                             Back
-                        </Btn>
+                        </Button>
                     )}
                     {step < steps.length ? (
-                        <Btn onClick={handleNext} disabled={loading || !currentStep?.isValid?.(data)}>
+                        <Button onClick={handleNext} disabled={loading || !currentStep?.isValid?.(data)}>
                             Next
-                        </Btn>
+                        </Button>
                     ) : (
-                        <Btn onClick={handleComplete} disabled={loading} variant="primary">
+                        <Button onClick={handleComplete} disabled={loading} variant="primary">
                             {loading ? "Processing..." : getCompleteLabel(wizard.type)}
-                        </Btn>
+                        </Button>
                     )}
                 </div>
             </Card>
@@ -557,9 +558,9 @@ function DnsTestResults({ data }) {
 
     return (
         <div>
-            <Btn onClick={runTest} disabled={testing} style={{ marginBottom: 12 }}>
+            <Button onClick={runTest} disabled={testing} style={{ marginBottom: 12 }}>
                 {testing ? "Testing..." : "Run DNS Test"}
-            </Btn>
+            </Button>
             {results && (
                 <div style={{ padding: 12, borderRadius: 6, background: results.propagated ? `${T.success}15` : `${T.warning}15` }}>
                     <div style={{ fontWeight: 600, marginBottom: 8 }}>
@@ -618,4 +619,5 @@ function DeployDnsStep({ data, update }) {
         </select>
     );
 }
+
 

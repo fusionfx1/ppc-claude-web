@@ -6,7 +6,9 @@
 
 import { useState, useEffect } from "react";
 import { THEME as T } from "../../../constants";
-import { Card, Btn, Badge } from "../../Atoms";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
+import { Badge } from "../../ui/badge";
 import { getDeploymentHistory, getDeploymentStats } from "../../../utils/deployers";
 
 const S = {
@@ -115,13 +117,13 @@ export function DeployHistory({ domains, onRedeploy }) {
                     </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                    <Btn variant="ghost" size="sm" onClick={loadData}>
+                    <Button variant="ghost"  size="sm" onClick={loadData}>
                         ↻ Refresh
-                    </Btn>
+                    </Button>
                     {history.length > 0 && (
-                        <Btn variant="ghost" size="sm" onClick={handleClearHistory} style={{ color: T.danger }}>
+                        <Button variant="ghost"  size="sm" onClick={handleClearHistory} style={{ color: T.danger }}>
                             Clear
-                        </Btn>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -256,4 +258,5 @@ export function DeployHistory({ domains, onRedeploy }) {
         </div>
     );
 }
+
 

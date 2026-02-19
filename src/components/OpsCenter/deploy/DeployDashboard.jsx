@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { THEME as T } from "../../../constants";
-import { Card } from "../../Atoms";
+import { Card } from "../../ui/card";
 import { getDeploymentStats, getDeploymentHistory } from "../../../utils/deployers";
 
 const S = {
@@ -183,4 +183,5 @@ export function DeployDashboard() {
         </div>
     );
 }
+
 
