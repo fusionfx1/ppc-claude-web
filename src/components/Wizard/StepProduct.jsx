@@ -1,6 +1,7 @@
 import React from "react";
 import { THEME as T, LOAN_TYPES } from "../../constants";
-import { Field, Inp } from "../Atoms";
+import { Field } from "../ui/field";
+import { InputField as Inp } from "../ui/input-field";
 
 const AMOUNT_PRESETS = [
     { min: 100, max: 5000, label: "$100–$5K" },
@@ -56,3 +57,4 @@ export function StepProduct({ c, u }) {
         </>
     );
 }
+

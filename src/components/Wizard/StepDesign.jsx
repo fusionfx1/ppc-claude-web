@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { THEME as T, COLORS, FONTS, LAYOUTS, RADIUS, TRUST_BADGE_STYLES, TRUST_BADGE_ICON_TONES } from "../../constants";
 import { hsl } from "../../utils";
 import { generateFavicon, generateOgImage } from "../../utils/image-gen";
-import { Field } from "../Atoms";
+import { Field } from "../ui/field";
 
 export function StepDesign({ c, u }) {
     const [genLoading, setGenLoading] = useState(false);
@@ -167,3 +167,4 @@ export function StepDesign({ c, u }) {
         </>
     );
 }
+

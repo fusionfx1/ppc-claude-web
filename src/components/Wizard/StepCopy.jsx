@@ -1,6 +1,7 @@
 import React from "react";
 import { THEME as T, COPY_SETS } from "../../constants";
-import { Field, Inp } from "../Atoms";
+import { Field } from "../ui/field";
+import { InputField as Inp } from "../ui/input-field";
 
 export function StepCopy({ c, u, onAiGenerate, aiLoading }) {
     const applyTemplate = (tpl) => {
@@ -68,3 +69,4 @@ export function StepCopy({ c, u, onAiGenerate, aiLoading }) {
         </>
     );
 }
+

@@ -1,6 +1,7 @@
 import React from "react";
 import { THEME as T, NETWORKS_AFF } from "../../constants";
-import { Field, Inp } from "../Atoms";
+import { Field } from "../ui/field";
+import { InputField as Inp } from "../ui/input-field";
 
 export function StepTracking({ c, u }) {
     const hasValidEmbed = c.formEmbed?.trim() && /<(script|div|iframe)/i.test(c.formEmbed);
@@ -66,7 +67,8 @@ export function StepTracking({ c, u }) {
             {/* Form Embed Code (Advanced) - Always visible for custom configurations */}
             <Field label="Form Embed Code (Advanced)" help="Raw embed code — tracking callbacks NOT auto-added">
                 <textarea
-                    value={c.formEmbed || `<script src="https://forms.leadsgate.com/form/embed/${c.aid || "14881"}"></script>
+                    value={c.formEmbed || ""}
+                    placeholder={`<script src="https://forms.leadsgate.com/form/embed/${c.aid || "14881"}"></script>
 <div id="leadsgate-form-container"></div>
 
 <script>
@@ -108,3 +110,4 @@ const _lg_form_init_ = {
         </>
     );
 }
+
