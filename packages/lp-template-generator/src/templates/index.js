@@ -10,6 +10,7 @@ import { generate as generatePDLLoansV3 } from './pdl-loans-v3/index.js';
 import { generate as generateSimpleLP } from './simple-lp/index.js';
 import { generate as generatePetCareLoans } from './pet-care-loans/index.js';
 import { generate as generateElasticCreditsV3 } from './elastic-credits-v3/index.js';
+import { generate as generateScratchpayBridge } from './scratchpay-bridge/index.js';
 
 // Register Classic Template
 registerTemplate('classic', {
@@ -65,6 +66,15 @@ registerTemplate('elastic-credits-v3', {
   generate: generateElasticCreditsV3,
 });
 
+// Register Scratchpay Bridge Template
+registerTemplate('scratchpay-bridge', {
+  name: 'Scratchpay Bridge',
+  description: 'Pet care financing bridge page with claymorphism design, payment calculator, and modal system',
+  badge: 'New',
+  category: 'general',
+  generate: generateScratchpayBridge,
+});
+
 // Export for direct use
 export { generate as generateClassic } from './classic/index.js';
 export { generate as generatePDLLoansV1 } from './pdl-loans-v1/index.js';
@@ -72,3 +82,4 @@ export { generate as generatePDLLoansV3 } from './pdl-loans-v3/index.js';
 export { generate as generateSimpleLP } from './simple-lp/index.js';
 export { generate as generatePetCareLoans } from './pet-care-loans/index.js';
 export { generate as generateElasticCreditsV3 } from './elastic-credits-v3/index.js';
+export { generate as generateScratchpayBridge } from './scratchpay-bridge/index.js';
