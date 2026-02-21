@@ -50,7 +50,7 @@ function resolveTemplateId(site) {
 }
 
 // Module template IDs for quick lookup
-const MODULE_TEMPLATE_IDS = ['classic', 'pdl-loans-v1', 'pdl-loans-v3', 'simple-lp', 'pet-care-loans', 'elastic-credits-v3', 'scratchpay-bridge'];
+const MODULE_TEMPLATE_IDS = ['classic', 'pdl-loans-v1', 'pdl-loans-v3', 'simple-lp', 'pet-care-loans', 'elastic-credits-v3', 'scratchpay-bridge', 'pet-loans-v1', 'installment-loans-v1'];
 
 // Check if a template ID is a module template
 function isModuleTemplate(templateId) {
@@ -107,11 +107,22 @@ function astroToHtmlPreview(files, site) {
     return match;
   });
 
-  // Clean up common Astro patterns
+  // Clean up Astro-specific attributes that cause browser errors
   html = html.replace(/<!doctype html>/gi, '<!DOCTYPE html>');
-  html = html.replace(/is:global/gi, '');
+  html = html.replace(/\s+is:global/g, '');
+  html = html.replace(/\s+is:inline/g, '');
+  // Strip define:vars={{ ... }} — handles single and multi-variable, single/multi-line
+  html = html.replace(/\s+define:vars=\{\{[^}]*(?:\}[^}][^}]*)*\}\}/g, '');
   html = html.replace(/<style[^>]*>/gi, '<style>');
   html = html.replace(/<\/style>/gi, '</style>');
+
+  // Inject fallback variable definitions before </head> to prevent ReferenceErrors
+  const fallbackVars = `<script>var conversionId='';var formStartLabel='';var formSubmitLabel='';var voluumDomain='';var id='preview';var defaultValue=0;var leadsGateFormId='';</script>`;
+  if (html.includes('</head>')) {
+    html = html.replace('</head>', fallbackVars + '\n</head>');
+  } else {
+    html = fallbackVars + html;
+  }
 
   return html;
 }
