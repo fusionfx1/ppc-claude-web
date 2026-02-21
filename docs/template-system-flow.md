@@ -315,7 +315,266 @@ node scripts/folder-to-template-json.js ./templates/elastic-credits-v4 \
 
 ---
 
-## 9. Event Flow เมื่อ Save Template สำเร็จ
+## 9. อธิบาย `scripts/folder-to-template-json.js` แบบละเอียด
+
+### ภาพรวม Flow ของ Script
+
+```
+รับ argument จาก command line
+    │
+    ▼
+ตรวจสอบว่า folder มีอยู่จริง
+    │
+    ▼
+collectFiles() — วนอ่านทุกไฟล์ใน folder แบบ recursive
+    │  ข้าม: node_modules/, dist/, .git/ ฯลฯ
+    │  รับเฉพาะ: .astro, .js, .ts, .css, .json ฯลฯ
+    ▼
+ตรวจสอบว่ามี src/pages/index.astro (เตือนถ้าไม่มี)
+    │
+    ▼
+สร้าง payload object { templateId, name, files, ... }
+    │
+    ├─ บันทึกเป็น <id>.template.json เสมอ
+    │
+    └─ ถ้าใช้ --upload → POST /api/templates
+```
+
+---
+
+### อธิบายทีละส่วน
+
+#### ส่วนที่ 1 — ค่า Config (บรรทัด 34–46)
+
+```js
+// นามสกุลไฟล์ที่ยอมรับ — เฉพาะไฟล์ source code เท่านั้น
+const ALLOWED_EXTENSIONS = new Set([
+  '.astro', '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+  '.json', '.css', '.html', '.md', '.env', '.toml', '.txt',
+]);
+
+// โฟลเดอร์ที่ข้ามทั้งหมด — ไม่อ่านเข้าไปเลย
+const SKIP_DIRS = new Set([
+  'node_modules', '.git', 'dist', '.astro', '.cache',
+  '.netlify', '.vercel', '.wrangler', 'coverage',
+]);
+
+// ไฟล์ที่ข้าม — lock files ที่ใหญ่และไม่จำเป็น
+const SKIP_FILES = new Set([
+  'package-lock.json', 'bun.lock', 'yarn.lock', 'pnpm-lock.yaml',
+]);
+```
+
+> **เหตุผล:** ไม่รับ `node_modules/` เพราะมีไฟล์หลายหมื่นไฟล์ ทำให้ JSON ใหญ่มาก และ API จะ rebuild dependencies เองเมื่อ deploy
+
+---
+
+#### ส่วนที่ 2 — `parseArgs()` (บรรทัด 50–68)
+
+```js
+// แปลง command line arguments เป็น object
+// เช่น: --id my-lp --name "My LP" --upload
+// ได้: { id: "my-lp", name: "My LP", upload: true, _: ["./folder"] }
+
+function parseArgs(argv) {
+  const args = { _: [] };           // _ เก็บ positional args (path ของ folder)
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);     // ตัด -- ออก เช่น --id → "id"
+      const next = argv[i + 1];
+      if (next && !next.startsWith('--')) {
+        args[key] = next;           // --id my-lp → args.id = "my-lp"
+        i++;
+      } else {
+        args[key] = true;           // --upload (ไม่มีค่า) → args.upload = true
+      }
+    } else {
+      args._.push(arg);             // ./my-folder → args._[0]
+    }
+  }
+  return args;
+}
+```
+
+---
+
+#### ส่วนที่ 3 — `collectFiles()` (บรรทัด 70–96) — หัวใจของ Script
+
+```js
+function collectFiles(dir, baseDir = dir, result = {}) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    // ข้ามโฟลเดอร์ที่ไม่ต้องการ (node_modules, dist ฯลฯ)
+    if (SKIP_DIRS.has(entry.name)) continue;
+
+    const fullPath = path.join(dir, entry.name);
+    // แปลง path เป็น relative จาก root folder และใช้ / แทน \ (Windows)
+    // เช่น: F:\my-lp\src\pages\index.astro → src/pages/index.astro
+    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+
+    if (entry.isDirectory()) {
+      // เรียกตัวเองซ้ำ (recursive) เพื่อเข้าไปใน subfolder
+      collectFiles(fullPath, baseDir, result);
+    } else if (entry.isFile()) {
+      if (SKIP_FILES.has(entry.name)) continue;   // ข้าม lock files
+
+      const ext = path.extname(entry.name).toLowerCase();
+      // ข้ามไฟล์ที่ไม่ใช่ source code (เช่น .png, .jpg, .woff)
+      if (!ALLOWED_EXTENSIONS.has(ext) && ext !== '') continue;
+
+      // อ่านเนื้อหาไฟล์เป็น string แล้วเก็บใน result
+      // key = relative path, value = เนื้อหาไฟล์
+      result[relPath] = fs.readFileSync(fullPath, 'utf-8');
+    }
+  }
+
+  return result;
+  // ผลลัพธ์: {
+  //   "src/pages/index.astro": "<!doctype html>...",
+  //   "astro.config.mjs": "import { defineConfig }...",
+  //   "src/styles/global.css": "* { margin: 0; }",
+  // }
+}
+```
+
+> **สำคัญ:** key ของ `result` คือ relative path เช่น `"src/pages/index.astro"` — ระบบใช้ key นี้ในการ preview และ deploy
+
+---
+
+#### ส่วนที่ 4 — `slugify()` (บรรทัด 98–100)
+
+```js
+// แปลงชื่อ folder เป็น Template ID ที่ใช้งานได้
+// เช่น: "My Awesome LP!" → "my-awesome-lp"
+// เช่น: "elastic_credits_v4" → "elastic-credits-v4"
+function slugify(str) {
+  return str
+    .toLowerCase()                          // ตัวพิมพ์เล็กทั้งหมด
+    .replace(/[^a-z0-9]+/g, '-')           // แทนอักขระพิเศษด้วย -
+    .replace(/^-|-$/g, '');                // ตัด - หัวและท้ายออก
+}
+```
+
+---
+
+#### ส่วนที่ 5 — `main()` ขั้นตอนหลัก (บรรทัด 104–208)
+
+```js
+// ขั้นตอนที่ 1: รับ argument
+const args = parseArgs(process.argv.slice(2));
+const folderArg = args._[0];   // path ของ Astro project folder
+
+// ขั้นตอนที่ 2: กำหนดค่า metadata
+const templateId   = args.id       || slugify(folderName);  // ถ้าไม่ระบุ --id ใช้ชื่อ folder
+const templateName = args.name     || folderName;
+const description  = args.desc     || '';
+const badge        = args.badge    || 'New';
+const category     = args.category || 'general';
+
+// ขั้นตอนที่ 3: รวบรวมไฟล์
+const files = collectFiles(folderPath);
+
+// ขั้นตอนที่ 4: ตรวจสอบ index.astro
+const hasIndex = Object.keys(files).some(
+  f => f === 'src/pages/index.astro' || f.endsWith('/index.astro')
+);
+// ถ้าไม่มี → แค่เตือน ไม่ได้หยุด (เผื่อ template บางแบบใช้ชื่อไฟล์ต่างกัน)
+
+// ขั้นตอนที่ 5: สร้าง payload
+const payload = {
+  templateId,    // "my-lp"
+  name,          // "My LP Template"
+  description,   // "คำอธิบาย"
+  category,      // "general"
+  badge,         // "New"
+  sourceCode,    // comment บอกที่มา (ไม่ใช่โค้ดจริง)
+  files,         // { "src/pages/index.astro": "...", ... }
+};
+
+// ขั้นตอนที่ 6: บันทึก JSON ไฟล์เสมอ (เป็น backup)
+fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), 'utf-8');
+
+// ขั้นตอนที่ 7: ถ้าใช้ --upload → POST ไป API
+if (args.upload) {
+  const res = await fetch(`${apiUrl}/api/templates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  // ถ้าสำเร็จ → Template ปรากฏใน LP Wizard ทันที
+}
+```
+
+---
+
+### ตัวอย่าง Output ที่ได้
+
+```
+📦 Converting: F:\astro.build\ppc-claude-web\templates\elastic-credits-v4
+   Template ID : elastic-credits-v4
+   Name        : Elastic Credits V4
+   Category    : general
+
+✅ Found 23 files:
+   📄 astro.config.mjs
+   📄 package.json
+   📄 src/components/CalcStatic.astro
+   📄 src/components/Footer.astro
+   📄 src/components/Header.astro
+   📄 src/layouts/Layout.astro
+   📄 src/pages/index.astro          ← ไฟล์หลักสำหรับ preview
+   📄 src/styles/global.css
+   📄 tailwind.config.mjs
+   📄 tsconfig.json
+   ... (อีก 13 ไฟล์)
+
+💾 Saved to: F:\astro.build\ppc-claude-web\elastic-credits-v4.template.json
+
+💡 To upload directly, run with --upload flag:
+   node scripts/folder-to-template-json.js ./templates/elastic-credits-v4 --upload --api-url http://localhost:8787
+```
+
+---
+
+### โครงสร้าง JSON ที่ได้
+
+```json
+{
+  "templateId": "elastic-credits-v4",
+  "name": "Elastic Credits V4",
+  "description": "Credit template with calculator",
+  "category": "general",
+  "badge": "New",
+  "sourceCode": "// Imported from folder: elastic-credits-v4\n// Files: 23\n// Generated: 2026-02-22T...",
+  "files": {
+    "src/pages/index.astro": "---\nimport Layout from '../layouts/Layout.astro';\n...",
+    "src/layouts/Layout.astro": "---\n...",
+    "src/styles/global.css": "* { margin: 0; padding: 0; }...",
+    "astro.config.mjs": "import { defineConfig } from 'astro/config';...",
+    "package.json": "{ \"name\": \"elastic-credits-v4\", ... }",
+    "tailwind.config.mjs": "export default { content: [...] }",
+    "tsconfig.json": "{ \"extends\": \"astro/tsconfigs/strict\" }"
+  }
+}
+```
+
+---
+
+### ข้อควรระวัง
+
+| สถานการณ์ | ผลที่เกิด |
+|-----------|-----------|
+| ไม่มี `src/pages/index.astro` | เตือน แต่ยังทำงานต่อ — Preview ใน LP Wizard จะไม่แสดงผล |
+| ไฟล์ binary (รูปภาพ, font) | ข้ามอัตโนมัติ — ต้องใช้ CDN หรือ public/ folder แทน |
+| `--id` ซ้ำกับที่มีอยู่ใน DB | API จะ error — ต้องใช้ ID ที่ไม่ซ้ำ |
+| ไม่ระบุ `--api-url` | ใช้ `http://localhost:8787` เป็น default |
+| ไฟล์ใหญ่มาก (>5MB รวม) | อาจ timeout — ลองลบไฟล์ที่ไม่จำเป็นออกก่อน |
+
+---
+
+## 10. Event Flow เมื่อ Save Template สำเร็จ
 
 ```
 กด "Save Template"
