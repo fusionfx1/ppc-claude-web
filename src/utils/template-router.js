@@ -70,6 +70,17 @@ function astroToHtmlPreview(files, site) {
     return '<div style="padding:20px;text-align:center;">No index.astro file found</div>';
   }
 
+  // If the file is plain HTML (no Astro frontmatter), return it directly
+  // to avoid corrupting JS template literals in script blocks
+  const hasAstroFrontmatter = /^---[\s\S]*?---/m.test(indexContent.trimStart());
+  if (!hasAstroFrontmatter) {
+    const fallbackVars = `<script>var conversionId='';var formStartLabel='';var formSubmitLabel='';var voluumDomain='';var id='preview';var defaultValue=0;var leadsGateFormId='';</script>`;
+    if (indexContent.includes('</head>')) {
+      return indexContent.replace('</head>', fallbackVars + '\n</head>');
+    }
+    return indexContent;
+  }
+
   // Get color object for this site
   const colorObj = getColorObj(site.colorId);
 
