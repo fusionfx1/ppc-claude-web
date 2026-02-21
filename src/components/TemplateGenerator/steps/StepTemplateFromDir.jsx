@@ -36,14 +36,10 @@ export function StepTemplateFromDir({ c, u, onGenerate, isGenerating }) {
     const handleGenerateFrom = (templateId) => {
         const tmpl = getTemplate(templateId);
         if (tmpl && onGenerate) {
+            // Generate actual files with SAMPLE_SITE so preview HTML is valid
             const files = tmpl.generate(SAMPLE_SITE);
 
-            const sourceCode = `
-// Source: templates/${templateId}/index.js
-// Copy this file to: packages/lp-template-generator/src/templates/${c.newFolderId || 'my-template'}/index.js
-
-/* TEMPLATE GENERATOR CODE - Read from source */
-` + generateSourceCode(templateId, tmpl);
+            const sourceCode = `// Source: cloned from templates/${templateId}/index.js\n// New template ID: ${c.newFolderId || 'my-template'}\n// Generated: ${new Date().toISOString()}`;
 
             onGenerate({ sourceCode, files });
         }
@@ -203,13 +199,11 @@ export function StepTemplateFromDir({ c, u, onGenerate, isGenerating }) {
                     📋 How to use
                 </div>
                 <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: T.muted }}>
+                    <li>Enter a unique folder name for your new template</li>
                     <li>Select a template to clone from</li>
-                    <li>Enter your new template name</li>
-                    <li>Click "Generate from This"</li>
-                    <li>Copy the generated code</li>
-                    <li>Create new folder in <code style={{ background: T.input, padding: "2px 6px", borderRadius: 4 }}>packages/lp-template-generator/src/templates/{c.newFolderId || "my-template"}</code></li>
-                    <li>Paste code into <code style={{ background: T.input, padding: "2px 6px", borderRadius: 4 }}>index.js</code></li>
-                    <li>Register in <code style={{ background: T.input, padding: "2px 6px", borderRadius: 4 }}>templates/index.js</code></li>
+                    <li>Click "Generate from This" to preview the files</li>
+                    <li>Click "Save Template" to save to the database</li>
+                    <li>Your template will appear instantly in LP Wizard</li>
                 </ol>
             </div>
         </>
