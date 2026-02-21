@@ -63,6 +63,18 @@ async function requestApi(endpoint, formData, accountId) {
     if (normalized === "/Domain/Create") {
       body.domain = formData?.domain || formData?.Domain || "";
       body.period = formData?.period || formData?.Period || "1Y";
+      // Also extract nameservers if present
+      const nsFromArray = Array.isArray(formData?.nameservers) ? formData.nameservers : [];
+      if (nsFromArray.length > 0) {
+        body.nameservers = nsFromArray;
+      } else {
+        // Check for Ns1, Ns2... in formData
+        const nsList = [];
+        for (let i = 1; i <= 10; i++) {
+          if (formData[`Ns${i}`]) nsList.push(formData[`Ns${i}`]);
+        }
+        if (nsList.length > 0) body.nameservers = nsList;
+      }
     }
 
     if (normalized === "/Domain/Update") {

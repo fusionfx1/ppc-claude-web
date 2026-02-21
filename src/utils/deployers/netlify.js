@@ -5,6 +5,34 @@
 
 import { updateDnsAfterDeploy } from "../../services/cloudflare-dns.js";
 
+// Helper function to generate slug candidates
+const generateSlugCandidates = (site) => {
+  const slugBase = (site.domain || site.brand || "lp")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  const siteIdPart = String(site.id || "x")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const primarySlug = `${slugBase}-${siteIdPart.slice(0, 8) || "x"}`.slice(0, 63);
+  const legacySlug = `${slugBase}-${siteIdPart.slice(0, 4) || "x"}`.slice(0, 63);
+  return Array.from(new Set([primarySlug, legacySlug]));
+};
+
+// Helper function to create auth headers
+const createAuthHeaders = (netlifyToken, netlifyTeamSlug) => {
+  const authH = { Authorization: `Bearer ${netlifyToken}` };
+  const teamSlug = String(netlifyTeamSlug || "").trim();
+  const withTeam = (url) => {
+    if (!teamSlug) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}account_slug=${encodeURIComponent(teamSlug)}`;
+  };
+  return { authH, withTeam };
+};
+
 export async function deploy(content, site, settings) {
   const { netlifyToken, netlifyTeamSlug, cfAccountId, cfApiToken } = settings;
   if (!netlifyToken) {
@@ -18,25 +46,8 @@ export async function deploy(content, site, settings) {
         Object.entries(content).map(([k, v]) => [k.startsWith("/") ? k : `/${k}`, v])
       );
 
-  const slugBase = (site.domain || site.brand || "lp")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40);
-  const siteIdPart = String(site.id || "x")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-  const primarySlug = `${slugBase}-${siteIdPart.slice(0, 8) || "x"}`.slice(0, 63);
-  const legacySlug = `${slugBase}-${siteIdPart.slice(0, 4) || "x"}`.slice(0, 63);
-  const slugCandidates = Array.from(new Set([primarySlug, legacySlug]));
-  const authH = { Authorization: `Bearer ${netlifyToken}` };
-  const teamSlug = String(netlifyTeamSlug || "").trim();
-  const withTeam = (url) => {
-    if (!teamSlug) return url;
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}account_slug=${encodeURIComponent(teamSlug)}`;
-  };
+  const slugCandidates = generateSlugCandidates(site);
+  const { authH, withTeam } = createAuthHeaders(netlifyToken, netlifyTeamSlug);
 
   try {
     // 1. Find existing site by slug candidates first
@@ -82,7 +93,7 @@ export async function deploy(content, site, settings) {
         // If slug is globally taken by another account/team, retry with unique slug
         if (!siteData && /must be unique/i.test(createErr)) {
           const uniqueSuffix = Date.now().toString(36).slice(-6);
-          const retrySlug = `${slugBase}-${siteIdPart.slice(0, 8) || "x"}-${uniqueSuffix}`.slice(0, 63);
+          const retrySlug = `${slugCandidates[0]}-${uniqueSuffix}`.slice(0, 63);
           activeSlug = retrySlug;
 
           createRes = await createWithName(retrySlug);
@@ -94,7 +105,7 @@ export async function deploy(content, site, settings) {
             if (!siteData) {
               return {
                 success: false,
-                error: `Failed to create/find Netlify site${teamSlug ? ` in team '${teamSlug}'` : ""}: ${retryErr || createErr || "Unknown Netlify API error"}`,
+                error: `Failed to create/find Netlify site${netlifyTeamSlug ? ` in team '${netlifyTeamSlug}'` : ""}: ${retryErr || createErr || "Unknown Netlify API error"}`,
               };
             }
           }
@@ -103,183 +114,167 @@ export async function deploy(content, site, settings) {
         if (!siteData) {
           return {
             success: false,
-            error: `Failed to create/find Netlify site${teamSlug ? ` in team '${teamSlug}'` : ""}: ${createErr || "Unknown Netlify API error"}`,
+            error: `Failed to create/find Netlify site${netlifyTeamSlug ? ` in team '${netlifyTeamSlug}'` : ""}: ${createErr || "Unknown Netlify API error"}`,
           };
         }
       }
     }
 
-    console.log(`[Netlify] Starting deploy for site:`, {
-      brand: site.brand,
-      domain: site.domain,
-      siteId: site.id,
-      activeSlug: activeSlug,
-      siteDataId: siteData?.id
-    });
+    // 2. Deploy files (if any)
+    if (Object.keys(fileEntries).length > 0) {
+      // Deploy all files at once using the newer API
+      const files = Object.entries(fileEntries).map(([path, content]) => ({
+        file_path: path,
+        data: content,
+      }));
 
-    // 2. Prepare file data & compute SHA1 hashes
-    const encoder = new TextEncoder();
-    const computeSha1 = async (buf) => {
-      const hash = await crypto.subtle.digest("SHA-1", buf);
-      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-    };
-
-    // Build files map from fileEntries
-    const filesToDeploy = {};
-    for (const [filePath, fileContent] of Object.entries(fileEntries)) {
-      const fileData = encoder.encode(fileContent);
-      filesToDeploy[filePath] = { data: fileData, sha1: await computeSha1(fileData) };
-    }
-
-    // Build digest map for deploy creation
-    const filesDigest = {};
-    for (const [path, file] of Object.entries(filesToDeploy)) {
-      filesDigest[path] = file.sha1;
-    }
-    console.log(`[Netlify] Files to deploy:`, Object.keys(filesDigest));
-
-    // 3. Create deploy with file digests
-    const deployRes = await fetch(
-      withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}/deploys`),
-      {
-        method: "POST",
-        headers: { ...authH, "Content-Type": "application/json" },
-        body: JSON.stringify({ files: filesDigest }),
-      }
-    );
-    if (!deployRes.ok) {
-      const errText = await deployRes.text().catch(() => "");
-      console.error(`[Netlify] Deploy creation failed:`, errText);
-      return { success: false, error: `Netlify deploy creation failed: ${errText || "Unknown error"}` };
-    }
-    const deployData = await deployRes.json();
-    console.log(`[Netlify] Deploy created:`, { id: deployData.id, required: deployData.required });
-
-    // 4. Upload required files (use raw binary body, NOT FormData)
-    if (deployData.required && deployData.required.length > 0) {
-      for (const [filePath, file] of Object.entries(filesToDeploy)) {
-        if (!deployData.required.includes(file.sha1)) continue;
-
-        const uploadUrl = `https://api.netlify.com/api/v1/deploys/${deployData.id}/files${filePath}`;
-        console.log(`[Netlify] Uploading ${filePath} to:`, uploadUrl);
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            ...authH,
-            "Content-Type": "application/octet-stream",
-          },
-          body: file.data,
-        });
-
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text().catch(() => "");
-          console.error(`[Netlify] Upload failed for ${filePath}:`, uploadRes.status, errText);
-          return { success: false, error: `Netlify upload failed for ${filePath}: ${uploadRes.status} ${errText}` };
+      const deployRes = await fetch(
+        withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}/deploys`),
+        {
+          method: "POST",
+          headers: { ...authH, "Content-Type": "application/json" },
+          body: JSON.stringify({ files }),
         }
-        console.log(`[Netlify] Uploaded ${filePath} OK`);
+      );
+
+      if (!deployRes.ok) {
+        const deployErr = await deployRes.text().catch(() => "");
+        return {
+          success: false,
+          error: `Deploy upload failed: ${deployErr}`,
+        };
+      }
+
+      const deployData = await deployRes.json();
+      console.log(`[Netlify] Deploy created: ${deployData.id}`);
+
+      // Wait for deploy to be ready (optional but improves UX)
+      let deployStatus = deployData;
+      let attempts = 0;
+      const maxAttempts = 12; // ~1 minute max
+
+      while (attempts < maxAttempts && deployStatus.state === "processing") {
+        await new Promise(r => setTimeout(r, 5000));
+        attempts++;
+        const statusRes = await fetch(
+          withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}/deploys/${deployData.id}`),
+          { headers: authH }
+        );
+        if (statusRes.ok) {
+          deployStatus = await statusRes.json();
+        } else {
+          break;
+        }
+      }
+
+      if (deployStatus.state === "ready") {
+        console.log(`[Netlify] Deploy ready: ${deployStatus.ssl_url}`);
+      } else {
+        console.log(`[Netlify] Deploy status: ${deployStatus.state}`);
       }
     }
 
-    // 6. Link custom domain to the Netlify site (non-fatal if it already exists)
-    let domainLinked = false;
-    let domainLinkError = null;
-    const requestedDomain = String(site.domain || "").trim().toLowerCase();
-
-    if (requestedDomain && !requestedDomain.endsWith(".netlify.app")) {
-      try {
-        const linkAttempts = [
-          {
-            label: "POST /sites/:id/domains {name}",
-            run: () => fetch(withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}/domains`), {
-              method: "POST",
-              headers: { ...authH, "Content-Type": "application/json" },
-              body: JSON.stringify({ name: requestedDomain }),
-            }),
-          },
-          {
-            label: "POST /sites/:id/domains {domain}",
-            run: () => fetch(withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}/domains`), {
-              method: "POST",
-              headers: { ...authH, "Content-Type": "application/json" },
-              body: JSON.stringify({ domain: requestedDomain }),
-            }),
-          },
-          {
-            label: "PATCH /sites/:id {custom_domain}",
-            run: () => fetch(withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}`), {
-              method: "PATCH",
-              headers: { ...authH, "Content-Type": "application/json" },
-              body: JSON.stringify({ custom_domain: requestedDomain }),
-            }),
-          },
-        ];
-
-        const errors = [];
-        for (const attempt of linkAttempts) {
-          const domainRes = await attempt.run();
-          if (domainRes.ok) {
-            domainLinked = true;
-            break;
-          }
-
-          const errText = await domainRes.text().catch(() => "");
-          const errMessage = `${attempt.label} -> ${domainRes.status}${errText ? `: ${errText}` : ""}`;
-
-          // Treat already-attached cases as success to keep deploy idempotent
-          if (/already|exists|taken|in use/i.test(errText)) {
-            domainLinked = true;
-            break;
-          }
-          errors.push(errMessage);
-        }
-
-        if (!domainLinked) {
-          domainLinkError = errors.join(" | ") || "Failed to link domain to Netlify site";
-        }
-      } catch (e) {
-        domainLinkError = e.message;
-      }
-    }
-
-    const url = domainLinked && requestedDomain
-      ? `https://${requestedDomain}`
-      : (siteData.ssl_url || siteData.url || `https://${siteData.name || activeSlug}.netlify.app`);
-
-    // ═════════════════════════════════════════════════════════════════════
-    // Step 7: Update DNS records if custom domain is configured
-    // ═════════════════════════════════════════════════════════════════════
+    // 3. Update DNS if domain is configured
     let dnsUpdated = false;
     let dnsError = null;
-
     if (site.domain && cfAccountId && cfApiToken) {
       try {
-        const dnsResult = await updateDnsAfterDeploy({
-          domain: site.domain,
-          cfAccountId,
-          cfApiToken,
-          deployTarget: "netlify",
-          deployUrl: url,
-          proxied: true,
-        });
-        dnsUpdated = dnsResult.success;
-        dnsError = dnsResult.error;
-      } catch (e) {
-        dnsError = e.message;
+        dnsUpdated = await updateDnsAfterDeploy(site.domain, siteData.ssl_url || siteData.url, cfAccountId, cfApiToken);
+      } catch (dnsErr) {
+        dnsError = dnsErr.message;
+        console.warn(`[Netlify] DNS update failed: ${dnsErr.message}`);
       }
     }
 
     return {
       success: true,
-      url,
-      deployId: deployData.id,
+      url: siteData.ssl_url || siteData.url,
+      deployId: siteData.id,
       target: "netlify",
-      domainLinked,
-      domainLinkError,
       dnsUpdated,
       dnsError,
     };
   } catch (e) {
     return { success: false, error: e.message };
+  }
+}
+
+export async function checkDeployStatus(site, settings) {
+  const { netlifyToken, netlifyTeamSlug } = settings;
+  if (!netlifyToken) return { success: false, error: "Missing Netlify token" };
+
+  const slugCandidates = generateSlugCandidates(site);
+  const { authH, withTeam } = createAuthHeaders(netlifyToken, netlifyTeamSlug);
+
+  try {
+    for (const slug of slugCandidates) {
+      const res = await fetch(
+        withTeam(`https://api.netlify.com/api/v1/sites/${encodeURIComponent(slug)}`),
+        { headers: authH }
+      );
+      if (!res.ok) continue;
+      const siteData = await res.json();
+
+      // Get latest deploy
+      const deploysRes = await fetch(
+        withTeam(`https://api.netlify.com/api/v1/sites/${siteData.id}/deploys?per_page=1`),
+        { headers: authH }
+      );
+      if (!deploysRes.ok) {
+        return { success: true, status: "unknown", url: siteData.ssl_url || siteData.url, platform: "netlify" };
+      }
+      const deploys = await deploysRes.json();
+      const latest = deploys[0];
+      if (!latest) return { success: true, status: "no_deploys", url: siteData.ssl_url || siteData.url, platform: "netlify" };
+
+      const stateMap = { ready: "live", processing: "building", building: "building", error: "failed", new: "pending" };
+      return {
+        success: true,
+        status: stateMap[latest.state] || latest.state,
+        url: siteData.ssl_url || siteData.url,
+        deployId: latest.id,
+        createdAt: latest.created_at,
+        platform: "netlify",
+      };
+    }
+    return { success: false, error: "Site not found on Netlify" };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+export async function deleteProject(site, settings) {
+  const { netlifyToken, netlifyTeamSlug } = settings;
+  if (!netlifyToken) {
+    return { success: false, error: "Missing Netlify token. Configure in Settings." };
+  }
+
+  const slugCandidates = generateSlugCandidates(site);
+  const { authH, withTeam } = createAuthHeaders(netlifyToken, netlifyTeamSlug);
+
+  try {
+    // Try to find and delete site by slug candidates
+    for (const slug of slugCandidates) {
+      try {
+        const deleteRes = await fetch(
+          withTeam(`https://api.netlify.com/api/v1/sites/${encodeURIComponent(slug)}`),
+          { 
+            method: "DELETE",
+            headers: authH 
+          }
+        );
+        
+        if (deleteRes.ok) {
+          return { success: true, message: `Deleted Netlify site: ${slug}` };
+        }
+      } catch (e) {
+        // Continue trying other slugs
+        continue;
+      }
+    }
+    
+    return { success: false, error: "Netlify site not found or already deleted" };
+  } catch (error) {
+    return { success: false, error: `Delete failed: ${error.message}` };
   }
 }

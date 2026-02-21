@@ -41,6 +41,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src/templates/astrodeck-main/src', import.meta.url)),
+        '#lp-template-generator': fileURLToPath(new URL('./packages/lp-template-generator/src', import.meta.url)),
       },
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     },

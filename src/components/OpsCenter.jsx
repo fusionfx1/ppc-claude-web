@@ -45,6 +45,273 @@ function StatusMsg({ msg, type }) {
     );
 }
 
+function D1DatabaseTab() {
+    const [sqlQuery, setSqlQuery] = useState("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name");
+    const [queryResult, setQueryResult] = useState(null);
+    const [queryError, setQueryError] = useState(null);
+    const [tables, setTables] = useState([]);
+    const [selectedTable, setSelectedTable] = useState(null);
+    const [tableData, setTableData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState(null);
+    const [initError, setInitError] = useState(null);
+
+    const loadTables = async () => {
+        try {
+            const result = await getTables();
+            if (result.success) {
+                setTables(result.tables || []);
+                setInitError(null);
+            } else {
+                setInitError(result.error || "Failed to load tables");
+            }
+        } catch (error) {
+            setInitError(error.message);
+        }
+    };
+
+    useEffect(() => {
+        const testConn = async () => {
+            try {
+                setLoading(true);
+                const result = await testConnection();
+                setConnectionStatus(result);
+                if (result.success) {
+                    await loadTables();
+                } else {
+                    setInitError(result.error || "Connection failed");
+                }
+            } catch (error) {
+                setInitError(error.message);
+                setConnectionStatus({ success: false, error: error.message });
+            } finally {
+                setLoading(false);
+            }
+        };
+        testConn();
+    }, []);
+
+    const handleRunQuery = async () => {
+        if (!sqlQuery.trim()) return;
+        setLoading(true);
+        setQueryError(null);
+        setQueryResult(null);
+        try {
+            const result = await query(sqlQuery);
+            if (result.success) {
+                setQueryResult(result.results || []);
+                setQueryError(null);
+            } else {
+                setQueryError(result.error);
+            }
+        } catch (error) {
+            setQueryError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleViewTable = async (tableName) => {
+        setSelectedTable(tableName);
+        setLoading(true);
+        setTableData(null);
+        try {
+            const result = await query(`SELECT * FROM ${tableName} LIMIT 100`);
+            if (result.success) {
+                setTableData(result.results || []);
+            } else {
+                setQueryError(result.error);
+            }
+        } catch (error) {
+            setQueryError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const QuickTableBtn = ({ name, onClick }) => (
+        <button
+            onClick={onClick}
+            style={{
+                padding: "8px 14px",
+                background: T.card2,
+                border: `1px solid ${T.border}`,
+                borderRadius: 6,
+                fontSize: 12,
+                cursor: "pointer",
+                color: T.text,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+            }}
+        >
+            📊 {name}
+        </button>
+    );
+
+    const ResultTable = ({ data }) => {
+        if (!data || data.length === 0) {
+            return <div style={{ padding: 20, textAlign: "center", color: T.dim }}>No results</div>;
+        }
+        const columns = Object.keys(data[0]);
+
+        return (
+            <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
+                <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+                    <thead style={{ position: "sticky", top: 0, background: T.card2 }}>
+                        <tr>
+                            {columns.map(col => (
+                                <th key={col} style={{
+                                    padding: "8px 12px",
+                                    textAlign: "left",
+                                    borderBottom: `2px solid ${T.border}`,
+                                    color: T.primary,
+                                    fontWeight: 600,
+                                }}>
+                                    {col}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.map((row, i) => (
+                            <tr key={i} style={{ borderBottom: `1px solid ${T.border22}` }}>
+                                {columns.map(col => (
+                                    <td key={col} style={{
+                                        padding: "6px 12px",
+                                        maxWidth: 300,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                    }}>
+                                        {row[col]?.toString() || "NULL"}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+
+    return (
+        <div>
+            <Card style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                    🔗 Connection Status
+                </div>
+                {loading ? (
+                    <div style={{ color: T.muted, fontSize: 11 }}>Testing connection...</div>
+                ) : connectionStatus ? (
+                    <div style={{
+                        color: connectionStatus.success ? T.success : T.danger,
+                        fontSize: 11,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6
+                    }}>
+                        <span>{connectionStatus.success ? "✅" : "❌"}</span>
+                        {connectionStatus.success ? "Connected to D1 Database" : connectionStatus.error}
+                    </div>
+                ) : (
+                    <div style={{ color: T.muted, fontSize: 11 }}>Not tested</div>
+                )}
+
+                {initError && (
+                    <div style={{
+                        marginTop: 8,
+                        padding: 8,
+                        background: `${T.danger}11`,
+                        border: `1px solid ${T.danger}44`,
+                        borderRadius: 6,
+                        fontSize: 11,
+                        color: T.danger
+                    }}>
+                        ⚠️ {initError}
+                    </div>
+                )}
+            </Card>
+
+            {tables.length > 0 && (
+                <Card style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                        📊 Tables ({tables.length})
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {tables.map(t => (
+                            <QuickTableBtn
+                                key={t}
+                                name={t}
+                                onClick={() => handleViewTable(t)}
+                            />
+                        ))}
+                    </div>
+                </Card>
+            )}
+
+            <Card style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                    🔍 SQL Query
+                </div>
+                <textarea
+                    value={sqlQuery}
+                    onChange={(e) => setSqlQuery(e.target.value)}
+                    placeholder="SELECT * FROM table_name WHERE condition = ?"
+                    style={{
+                        width: "100%",
+                        minHeight: 80,
+                        padding: 10,
+                        borderRadius: 7,
+                        background: T.input,
+                        border: `1px solid ${T.border}`,
+                        color: T.text,
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                        resize: "vertical",
+                        boxSizing: "border-box",
+                    }}
+                />
+                <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
+                    <Button
+                        onClick={handleRunQuery}
+                        disabled={loading}
+                        style={{ minWidth: 80 }}
+                    >
+                        {loading ? "..." : "▶ Run Query"}
+                    </Button>
+                </div>
+            </Card>
+
+            {queryError && (
+                <Card style={{ marginBottom: 12, border: `1px solid ${T.danger}`, background: `${T.danger}11` }}>
+                    <div style={{ fontSize: 12, color: T.danger }}>
+                        ❌ {queryError}
+                    </div>
+                </Card>
+            )}
+
+            {queryResult && (
+                <Card>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                        📋 Results ({queryResult.length} rows)
+                    </div>
+                    <ResultTable data={queryResult} />
+                </Card>
+            )}
+
+            {tableData && selectedTable && (
+                <Card>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
+                        📊 Table: {selectedTable} ({tableData.length} rows)
+                    </div>
+                    <ResultTable data={tableData} />
+                </Card>
+            )}
+        </div>
+    );
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    OpsCenter — Tasks 7, 8, 9, 11, 12
    ═══════════════════════════════════════════════════════════════════════ */
@@ -1950,228 +2217,7 @@ export function OpsCenter({ data, add, del, upd, settings }) {
             {/* ═══════════════════════════════════════════════════════════
                 TAB: D1 DATABASE
                 ═══════════════════════════════════════════════════════════ */}
-            {tab === "d1" && (() => {
-                const [sqlQuery, setSqlQuery] = useState("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name");
-                const [queryResult, setQueryResult] = useState(null);
-                const [queryError, setQueryError] = useState(null);
-                const [tables, setTables] = useState([]);
-                const [selectedTable, setSelectedTable] = useState(null);
-                const [tableData, setTableData] = useState(null);
-                const [loading, setLoading] = useState(false);
-                const [connectionStatus, setConnectionStatus] = useState(null);
-
-                // Load tables function
-                const loadTables = async () => {
-                    const result = await getTables();
-                    if (result.success) {
-                        setTables(result.tables || []);
-                    }
-                };
-
-                // Test connection on mount
-                useEffect(() => {
-                    const testConn = async () => {
-                        const result = await testConnection();
-                        setConnectionStatus(result);
-                        if (result.success) {
-                            loadTables();
-                        }
-                    };
-                    testConn();
-                    // eslint-disable-next-line react-hooks/exhaustive-deps
-                }, []);
-
-                const handleRunQuery = async () => {
-                    if (!sqlQuery.trim()) return;
-                    setLoading(true);
-                    setQueryError(null);
-                    setQueryResult(null);
-                    const result = await query(sqlQuery);
-                    setLoading(false);
-                    if (result.success) {
-                        setQueryResult(result.results || []);
-                    } else {
-                        setQueryError(result.error);
-                    }
-                };
-
-                const handleViewTable = async (tableName) => {
-                    setSelectedTable(tableName);
-                    setLoading(true);
-                    const result = await query(`SELECT * FROM ${tableName} LIMIT 100`);
-                    setLoading(false);
-                    if (result.success) {
-                        setTableData(result.results || []);
-                    } else {
-                        setQueryError(result.error);
-                    }
-                };
-
-                const QuickTableBtn = ({ name, onClick }) => (
-                    <button
-                        onClick={onClick}
-                        style={{
-                            padding: "8px 14px",
-                            background: T.card2,
-                            border: `1px solid ${T.border}`,
-                            borderRadius: 6,
-                            fontSize: 12,
-                            cursor: "pointer",
-                            color: T.text,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                        }}
-                    >
-                        📊 {name}
-                    </button>
-                );
-
-                const ResultTable = ({ data }) => {
-                    if (!data || data.length === 0) {
-                        return <div style={{ padding: 20, textAlign: "center", color: T.dim }}>No results</div>;
-                    }
-                    const columns = Object.keys(data[0]);
-
-                    return (
-                        <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
-                            <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
-                                <thead style={{ position: "sticky", top: 0, background: T.card2 }}>
-                                    <tr>
-                                        {columns.map(col => (
-                                            <th key={col} style={{
-                                                padding: "8px 12px",
-                                                textAlign: "left",
-                                                borderBottom: `2px solid ${T.border}`,
-                                                color: T.primary,
-                                                fontWeight: 600,
-                                            }}>
-                                                {col}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.map((row, i) => (
-                                        <tr key={i} style={{ borderBottom: `1px solid ${T.border22}` }}>
-                                            {columns.map(col => (
-                                                <td key={col} style={{
-                                                    padding: "6px 12px",
-                                                    maxWidth: 300,
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap",
-                                                }}>
-                                                    {row[col]?.toString() || "NULL"}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    );
-                };
-
-                return (
-                    <div>
-                        {/* Connection Status */}
-                        <Card style={{ marginBottom: 12 }}>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
-                                    🗄️ D1 Database Connection
-                                </span>
-                                {connectionStatus && (
-                                    <Badge type={connectionStatus.success ? "success" : "danger"}>
-                                        {connectionStatus.success ? "✓ Connected" : "✗ " + (connectionStatus.error || "Failed")}
-                                    </Badge>
-                                )}
-                            </div>
-                        </Card>
-
-                        {/* Quick Table Access */}
-                        {tables.length > 0 && (
-                            <Card style={{ marginBottom: 12 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
-                                    📊 Tables ({tables.length})
-                                </div>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                    {tables.map(t => (
-                                        <QuickTableBtn
-                                            key={t}
-                                            name={t}
-                                            onClick={() => handleViewTable(t)}
-                                        />
-                                    ))}
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* SQL Query Editor */}
-                        <Card style={{ marginBottom: 12 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
-                                🔍 SQL Query
-                            </div>
-                            <textarea
-                                value={sqlQuery}
-                                onChange={(e) => setSqlQuery(e.target.value)}
-                                placeholder="SELECT * FROM table_name WHERE condition = ?"
-                                style={{
-                                    width: "100%",
-                                    minHeight: 80,
-                                    padding: 10,
-                                    borderRadius: 7,
-                                    background: T.input,
-                                    border: `1px solid ${T.border}`,
-                                    color: T.text,
-                                    fontSize: 12,
-                                    fontFamily: "monospace",
-                                    resize: "vertical",
-                                    boxSizing: "border-box",
-                                }}
-                            />
-                            <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
-                                <Button
-                                    onClick={handleRunQuery}
-                                    disabled={loading}
-                                    style={{ minWidth: 80 }}
-                                >
-                                    {loading ? "..." : "▶ Run Query"}
-                                </Button>
-                            </div>
-                        </Card>
-
-                        {/* Query Error */}
-                        {queryError && (
-                            <Card style={{ marginBottom: 12, border: `1px solid ${T.danger}`, background: `${T.danger}11` }}>
-                                <div style={{ fontSize: 12, color: T.danger }}>
-                                    ❌ {queryError}
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Query Results */}
-                        {queryResult && (
-                            <Card>
-                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
-                                    📋 Results ({queryResult.length} rows)
-                                </div>
-                                <ResultTable data={queryResult} />
-                            </Card>
-                        )}
-
-                        {/* Table Data View */}
-                        {tableData && selectedTable && (
-                            <Card>
-                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: T.text }}>
-                                    📊 Table: {selectedTable} ({tableData.length} rows)
-                                </div>
-                                <ResultTable data={tableData} />
-                            </Card>
-                        )}
-                    </div>
-                );
-            })()}
+            {tab === "d1" && <D1DatabaseTab />}
 
             {/* ═══════════════════════════════════════════════════════════
                 TAB: LOGS

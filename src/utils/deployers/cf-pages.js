@@ -96,6 +96,39 @@ async function cfFetch(url, opts = {}) {
   return { ok: res.ok, status: res.status, json };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryDelayMs(res, attempt) {
+  const retryAfter = Number(res?.headers?.get?.("Retry-After") || "");
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return retryAfter * 1000;
+  }
+  // Exponential backoff with a sane cap.
+  return Math.min(2000 * 2 ** Math.max(0, attempt - 1), 12000);
+}
+
+async function fetchWithRateLimitRetry(url, opts = {}, maxAttempts = 4) {
+  let lastRes = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, opts);
+    lastRes = res;
+    if (res.status !== 429) return res;
+    if (attempt < maxAttempts) {
+      const waitMs = getRetryDelayMs(res, attempt);
+      await sleep(waitMs);
+    }
+  }
+  return lastRes;
+}
+
+async function cfFetchWithRateLimitRetry(url, opts = {}, maxAttempts = 4) {
+  const res = await fetchWithRateLimitRetry(url, opts, maxAttempts);
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, json };
+}
+
 export async function deploy(content, site, settings) {
   const cfApiToken = (settings.cfApiToken || "").trim();
   const cfAccountId = (settings.cfAccountId || "").trim();
@@ -122,10 +155,10 @@ export async function deploy(content, site, settings) {
 
   try {
     // ── Step 1: Ensure project exists ──────────────────────────────
-    const checkRes = await fetch(`${projectsUrl}/${projectName}`, { headers: apiAuth });
+    const checkRes = await fetchWithRateLimitRetry(`${projectsUrl}/${projectName}`, { headers: apiAuth });
 
     if (checkRes.status === 404 || !checkRes.ok) {
-      const createRes = await fetch(projectsUrl, {
+      const createRes = await fetchWithRateLimitRetry(projectsUrl, {
         method: "POST",
         headers: { ...apiAuth, "Content-Type": "application/json" },
         body: JSON.stringify({ name: projectName, production_branch: "main" }),
@@ -151,7 +184,7 @@ export async function deploy(content, site, settings) {
     }
 
     // ── Step 3: Get upload JWT token ───────────────────────────────
-    const tokenRes = await cfFetch(
+    const tokenRes = await cfFetchWithRateLimitRetry(
       `${projectsUrl}/${projectName}/upload-token`,
       { headers: apiAuth }
     );
@@ -162,7 +195,7 @@ export async function deploy(content, site, settings) {
     const jwtAuth = { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" };
 
     // ── Step 4: Check which files need uploading ───────────────────
-    const checkMissing = await cfFetch(
+    const checkMissing = await cfFetchWithRateLimitRetry(
       `${cfBase}/pages/assets/check-missing`,
       { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: allHashes }) }
     );
@@ -189,7 +222,7 @@ export async function deploy(content, site, settings) {
       }
 
       if (uploadPayload.length > 0) {
-        const uploadRes = await cfFetch(
+        const uploadRes = await cfFetchWithRateLimitRetry(
           `${cfBase}/pages/assets/upload`,
           { method: "POST", headers: jwtAuth, body: JSON.stringify(uploadPayload) }
         );
@@ -200,7 +233,7 @@ export async function deploy(content, site, settings) {
     }
 
     // ── Step 6: Register hashes (upsert) ───────────────────────────
-    await cfFetch(
+    await cfFetchWithRateLimitRetry(
       `${cfBase}/pages/assets/upsert-hashes`,
       { method: "POST", headers: jwtAuth, body: JSON.stringify({ hashes: allHashes }) }
     );
@@ -215,7 +248,7 @@ export async function deploy(content, site, settings) {
     formData.append("branch", "main");
     formData.append("commit_message", `Deploy ${site.domain || site.brand || "LP"} — ${new Date().toISOString()}`);
 
-    const deployRes = await fetch(
+    const deployRes = await fetchWithRateLimitRetry(
       `${projectsUrl}/${projectName}/deployments`,
       { method: "POST", headers: apiAuth, body: formData }
     );
@@ -229,6 +262,9 @@ export async function deploy(content, site, settings) {
       } catch (e) {
         console.warn("[CFPages] Failed to parse error response:", e?.message || e);
         errMsg = errBody.slice(0, 200) || errMsg;
+      }
+      if (deployRes.status === 429) {
+        return { success: false, error: "Cloudflare Pages is rate limiting deploys (429). Please wait a bit and retry." };
       }
       return { success: false, error: `Deploy failed: ${errMsg}` };
     }
@@ -267,6 +303,44 @@ export async function deploy(content, site, settings) {
       target: "cf-pages",
       dnsUpdated,
       dnsError,
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+export async function checkDeployStatus(site, settings) {
+  const { cfApiToken, cfAccountId } = settings;
+  if (!cfApiToken || !cfAccountId) return { success: false, error: "Missing CF credentials" };
+
+  const projectName = (site.domain || site.brand || "lp")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 28) + "-" + String(site.id || "x").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
+
+  const cfBase = getCfApiBase();
+  const authH = { Authorization: `Bearer ${cfApiToken}` };
+
+  try {
+    const res = await fetch(
+      `${cfBase}/accounts/${cfAccountId}/pages/projects/${projectName}/deployments?per_page=1`,
+      { headers: authH }
+    );
+    if (!res.ok) return { success: false, error: `CF Pages API: ${res.status}` };
+    const data = await res.json();
+    const latest = data.result?.[0];
+    if (!latest) return { success: true, status: "no_deploys", platform: "cf-pages" };
+
+    const stateMap = { success: "live", failure: "failed", canceled: "failed", running: "building", queued: "pending" };
+    return {
+      success: true,
+      status: stateMap[latest.latest_stage?.status] || stateMap[latest.deployment_trigger?.type] || "unknown",
+      url: latest.url || `https://${projectName}.pages.dev`,
+      deployId: latest.id,
+      createdAt: latest.created_on,
+      platform: "cf-pages",
     };
   } catch (e) {
     return { success: false, error: e.message };

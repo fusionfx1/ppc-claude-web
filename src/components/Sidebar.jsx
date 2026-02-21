@@ -5,6 +5,18 @@ import { cn } from "../lib/utils";
 
 const CHANGELOG = [
     {
+        version: "2.1.1",
+        date: "2026-02-20",
+        changes: [
+            "🏷️ Policy Status Selector: Edit site policy status (Warming/Limited/Banned/Unknown) directly from cards",
+            "🗑️ Bulk Delete All: Delete all projects + deployed sites with 2-step safety confirmation",
+            "🐛 Error Log Tab: System-wide error tracking with filtering, export, and stack traces",
+            "📊 Enhanced Grouping: Better site organization by Google Ads, Cloudflare, policy status, template",
+            "🔍 Quick Filters: Deployed, Banned, Warming, No Domain, Not Deployed with persistent state",
+            "⚡ Performance: Optimized badge rendering and dropdown interactions",
+        ],
+    },
+    {
         version: "2.1.0",
         date: "2026-02-16",
         changes: [
@@ -40,17 +52,19 @@ const CHANGELOG = [
     },
 ];
 
-export function Sidebar({ page, setPage, siteCount, startCreate, collapsed, toggle }) {
+export function Sidebar({ page, setPage, siteCount, startCreate, startTemplateGen, collapsed, toggle }) {
     const [showLog, setShowLog] = useState(false);
 
     const items = [
         { id: "dashboard", icon: "📊", label: "Dashboard" },
         { id: "sites", icon: "🌐", label: "My Sites", badge: siteCount },
         { id: "template-editor", icon: "🎨", label: "Template Editor" },
-        { id: "create", icon: "⚡", label: "Astro Wizard", action: startCreate },
+        { id: "template-gen", icon: "🧙", label: "Template Wizard", action: startTemplateGen },
+        { id: "create", icon: "⚡", label: "LP Wizard", action: startCreate },
         { id: "variant", icon: "🧪", label: "Variant Studio" },
         { id: "ops", icon: "🏢", label: "Ops Center" },
         { id: "deploys", icon: "🚀", label: "Deploys" },
+        { id: "error-log", icon: "🐛", label: "Error Log" },
         { id: "docs", icon: "📚", label: "API Docs", external: true, href: "/docs" },
         { id: "settings", icon: "⚙️", label: "Settings" },
     ];

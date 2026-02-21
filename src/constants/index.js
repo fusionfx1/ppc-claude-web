@@ -1,4 +1,4 @@
-export const APP_VERSION = "2.1.0";
+export const APP_VERSION = "2.1.1";
 
 export const LOAN_TYPES = [
     { id: "personal", label: "Personal Loans", icon: "💳" },
@@ -68,6 +68,10 @@ export const COPY_SETS = [
     { id: "flex", brand: "FlexCredit", h1: "Flexible Loans", h1span: "on Your Terms", sub: "Choose your amount. Pick your timeline. Get funded fast.", cta: "Check Eligibility", badge: "6,100+ customers served" },
 ];
 
+/**
+ * @deprecated Use getAllTemplates() from src/utils/template-registry.js instead.
+ * This constant is kept for backward compatibility and will be removed in a future version.
+ */
 export const SITE_TEMPLATES = [
     {
         id: "classic",

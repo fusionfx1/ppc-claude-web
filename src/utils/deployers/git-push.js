@@ -14,12 +14,9 @@ export async function deploy(content, site, settings) {
   if (typeof content === "string") {
     files = { "index.html": content };
   } else if (content && typeof content === "object") {
-    // Already a files map (from Astro project generator)
+    // Already a files map (from Astro project generator or multi-file deploy)
+    // Astro source projects don't have index.html — GitHub Actions builds it
     files = content;
-    // Ensure index.html exists if it's a multi-file deploy
-    if (!files["index.html"]) {
-      throw new Error("Deploy requires index.html in generated content");
-    }
   } else {
     throw new Error("Invalid deploy content for git-push target");
   }
@@ -71,26 +68,61 @@ export async function deploy(content, site, settings) {
   };
 }
 
-// Legacy function for HTML-only content - kept for compatibility
-function normalizeFiles(content) {
-  if (typeof content === "string") {
-    return { "index.html": content };
+/**
+ * Check deploy status by querying the latest GitHub Actions workflow run
+ * on the deploy/auto branch.
+ */
+export async function checkDeployStatus(site, settings) {
+  const owner = settings.githubRepoOwner;
+  const repo = settings.githubRepoName;
+  const rawToken = String(settings.githubToken || "").trim();
+  const token = isMaskedSecret(rawToken) ? "" : rawToken;
+  const workflowFile = settings.githubDeployWorkflow || "deploy-sites.yml";
+
+  if (!owner || !repo || !token) {
+    return { success: false, error: "GitHub not configured (owner/repo/token)" };
   }
 
-  if (content && typeof content === "object") {
-    const out = {};
-    Object.entries(content).forEach(([path, fileContent]) => {
-      const cleanPath = String(path || "").replace(/^\/+/, "");
-      if (!cleanPath) return;
-      out[cleanPath] = String(fileContent ?? "");
-    });
-    if (!out["index.html"]) {
-      throw new Error("Git push deploy requires index.html in generated content");
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?branch=deploy/auto&per_page=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
     }
-    return out;
+  );
+
+  if (!res.ok) {
+    return { success: false, error: `GitHub API ${res.status}` };
   }
 
-  throw new Error("Invalid deploy content for git-push target");
+  const data = await res.json();
+  const run = data.workflow_runs?.[0];
+
+  if (!run) {
+    return { success: true, status: "no_deploys", platform: "github-actions" };
+  }
+
+  const statusMap = {
+    completed: run.conclusion === "success" ? "live" : "failed",
+    in_progress: "building",
+    queued: "pending",
+    requested: "pending",
+    waiting: "pending",
+  };
+
+  return {
+    success: true,
+    status: statusMap[run.status] || "unknown",
+    url: run.html_url,
+    platform: "github-actions",
+    conclusion: run.conclusion,
+    runId: run.id,
+    createdAt: run.created_at,
+    updatedAt: run.updated_at,
+  };
 }
 
 function isMaskedSecret(value) {

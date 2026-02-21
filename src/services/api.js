@@ -52,12 +52,18 @@ async function request(path, opts = {}) {
         ...(isMutation && { "X-CSRF-Token": getCsrfToken() }),
     };
 
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 10000);
+
     let r;
 
     try {
-        r = await fetch(url, { ...opts, headers });
+        r = await fetch(url, { ...opts, headers, signal: controller.signal });
+        clearTimeout(id);
     } catch (e) {
-        console.warn("[API] Network error:", e?.message || e);
+        clearTimeout(id);
+        console.warn("[API] Network error or timeout:", e?.message || e);
         return {
             error: "NETWORK_ERROR",
             detail: e?.message || "Failed to fetch",

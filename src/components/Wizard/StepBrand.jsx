@@ -1,12 +1,12 @@
 import React from "react";
 import { THEME as T } from "../../constants";
-import { SITE_TEMPLATES } from "../../constants";
 import { Field } from "../ui/field";
 import { InputField as Inp } from "../ui/input-field";
-import { getTemplateById, DEFAULT_TEMPLATE_ID } from "./template-utils";
+import { getTemplateById, DEFAULT_TEMPLATE_ID, getAllTemplates } from "./template-utils";
 
 export function StepBrand({ c, u }) {
     const selectedTemplate = getTemplateById(c.templateId || DEFAULT_TEMPLATE_ID);
+    const templates = getAllTemplates();
 
     return (
         <>
@@ -17,7 +17,7 @@ export function StepBrand({ c, u }) {
 
             <Field label="Template" req help="Select the landing page architecture">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {SITE_TEMPLATES.map(tpl => {
+                    {templates.map(tpl => {
                         const active = (c.templateId || DEFAULT_TEMPLATE_ID) === tpl.id;
                         return (
                             <button key={tpl.id} onClick={() => u("templateId", tpl.id)} style={{

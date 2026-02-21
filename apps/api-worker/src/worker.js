@@ -120,19 +120,19 @@ const DEPLOY_MANIFEST_SCHEMA = {
   "title": "DeployManifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version","siteId","brand","templateId","environment","targets","build","tracking","meta"],
+  "required": ["version", "siteId", "brand", "templateId", "environment", "targets", "build", "tracking", "meta"],
   "properties": {
     "version": { "type": "integer", "minimum": 1 },
     "siteId": { "type": "string", "minLength": 1 },
     "brand": { "type": "string" },
     "templateId": { "type": "string", "minLength": 1 },
-    "environment": { "type": "string", "enum": ["dev","staging","production"] },
+    "environment": { "type": "string", "enum": ["dev", "staging", "production"] },
     "targets": {
       "type": "array", "minItems": 1,
       "items": {
         "type": "object", "additionalProperties": false, "required": ["provider"],
         "properties": {
-          "provider": { "type": "string", "enum": ["github-actions","cloudflare-pages","netlify","vercel"] },
+          "provider": { "type": "string", "enum": ["github-actions", "cloudflare-pages", "netlify", "vercel"] },
           "projectName": { "type": "string" },
           "siteId": { "type": "string" },
           "vercelProjectId": { "type": "string" },
@@ -142,14 +142,14 @@ const DEPLOY_MANIFEST_SCHEMA = {
       }
     },
     "build": {
-      "type": "object", "additionalProperties": false, "required": ["entry","extraFiles"],
+      "type": "object", "additionalProperties": false, "required": ["entry", "extraFiles"],
       "properties": {
-        "entry": { "type": "string", "const": "index.html" },
+        "entry": { "type": "string", "enum": ["index.html", "astro"] },
         "extraFiles": { "type": "array", "items": { "type": "string" } }
       }
     },
     "tracking": {
-      "type": "object", "additionalProperties": false, "required": ["googleAdsId","pixelEndpoint","voluumDomain"],
+      "type": "object", "additionalProperties": false, "required": ["googleAdsId", "pixelEndpoint", "voluumDomain"],
       "properties": {
         "googleAdsId": { "type": "string" },
         "pixelEndpoint": { "type": "string" },
@@ -157,7 +157,7 @@ const DEPLOY_MANIFEST_SCHEMA = {
       }
     },
     "meta": {
-      "type": "object", "additionalProperties": false, "required": ["requestedBy","requestedAt","requestId","commitMessage"],
+      "type": "object", "additionalProperties": false, "required": ["requestedBy", "requestedAt", "requestId", "commitMessage"],
       "properties": {
         "requestedBy": { "type": "string" },
         "requestedAt": { "type": "string" },
@@ -345,7 +345,7 @@ export default {
         const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
         await env.DB.prepare(
           'INSERT OR REPLACE INTO vps_deploys (id, html, host, created_at) VALUES (?, ?, ?, ?)'
-        ).bind(id, html, host || 'unknown', new Date().toISOString()).run().catch(() => {});
+        ).bind(id, html, host || 'unknown', new Date().toISOString()).run().catch(() => { });
 
         const downloadUrl = `${url.origin}/api/deploy/vps/download/${id}`;
         const sshCmd = `curl -sL "${downloadUrl}" -o /tmp/index.html && scp /tmp/index.html ${user}@${host}:${remotePath}/index.html`;
@@ -1118,6 +1118,53 @@ export default {
         return json({ success: true });
       }
 
+      // ═══ TEMPLATES ═══
+      if (path === '/api/templates' && method === 'GET') {
+        const { results } = await db.prepare('SELECT * FROM templates ORDER BY created_at DESC').all();
+        return json(results);
+      }
+
+      if (path === '/api/templates' && method === 'POST') {
+        const body = await request.json();
+        const id = body.id || uid();
+        const now = new Date().toISOString();
+
+        // Check if template_id already exists
+        const existing = await db.prepare('SELECT id FROM templates WHERE template_id = ?').bind(body.templateId || '').first();
+        if (existing) {
+          return json({ error: 'Template ID already exists' }, 400);
+        }
+
+        await db.prepare(`
+          INSERT INTO templates (id, template_id, name, description, category, badge, source_code, files, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          id,
+          body.templateId || '',
+          body.name || '',
+          body.description || '',
+          body.category || 'general',
+          body.badge || 'New',
+          body.sourceCode || '',
+          body.files ? JSON.stringify(body.files) : '{}',
+          now
+        ).run();
+        return json({ id, success: true }, 201);
+      }
+
+      if (path.match(/^\/api\/templates\/[\w-]+$/) && method === 'GET') {
+        const id = path.split('/').pop();
+        const template = await db.prepare('SELECT * FROM templates WHERE id = ?').bind(id).first();
+        if (!template) return json({ error: 'Template not found' }, 404);
+        return json(template);
+      }
+
+      if (path.match(/^\/api\/templates\/[\w-]+$/) && method === 'DELETE') {
+        const id = path.split('/').pop();
+        await db.prepare('DELETE FROM templates WHERE id = ?').bind(id).run();
+        return json({ success: true });
+      }
+
       // ═══ OPS: DOMAINS ═══
       if (path === '/api/ops/domains' && method === 'GET') {
         const { results } = await db.prepare('SELECT * FROM ops_domains ORDER BY created_at DESC').all();
@@ -1306,31 +1353,60 @@ export default {
 
       // ═══ AI: GENERATION ═══
       if (path === "/api/ai/generate-copy" && method === "POST") {
-        const body = await request.json();
-        const settingsRow = await db.prepare("SELECT * FROM settings WHERE key = 'geminiKey'").first();
-        const key = settingsRow?.value;
-        if (!key) return json({ error: "Gemini Key not configured" }, 400);
-
-        const prompt = `Generate high-converting loan landing page copy.
-          Brand: "${body.brand}"
-          Loan Type: "${body.loanType}"
-          Amount Range: $${body.amountMin}-$${body.amountMax}
-          Language: ${body.lang || "English"}
-          Format: Strict JSON object only. No markdown.
-          Structure: {"h1":"","badge":"","cta":"","sub":"","tagline":"","trust_msg":""}`;
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        const d = await res.json();
-        const text = d.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
         try {
-          return json(JSON.parse(text));
-        } catch {
-          return json({ error: "AI Format Error", raw: text }, 500);
+          const body = await request.json();
+          const settingsRow = await db.prepare("SELECT * FROM settings WHERE key = 'geminiKey'").first();
+          const key = (settingsRow?.value || "").trim();
+
+          if (!key || isMaskedSecret(key)) {
+            return json({ error: "Gemini Key not configured or invalid" }, 400);
+          }
+
+          const prompt = `Generate high-converting loan landing page copy.
+            Brand: "${body.brand || "ElasticCredits"}"
+            Loan Type: "${body.loanType || "Personal"}"
+            Amount Range: $${body.amountMin || 100}-$${body.amountMax || 5000}
+            Language: ${body.lang || "English"}
+            Format: Strict JSON object only. No markdown.
+            Structure: {"h1":"","badge":"","cta":"","sub":"","tagline":"","trust_msg":""}`;
+
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+          });
+
+          if (!res.ok) {
+            const errDetail = await res.text().catch(() => "Unknown error");
+            console.error("[AI] Gemini API error:", res.status, errDetail);
+            return json({ error: `Gemini API Error (${res.status})`, details: errDetail }, 502);
+          }
+
+          const d = await res.json();
+          const candidate = d.candidates?.[0];
+          if (!candidate) {
+            console.error("[AI] No candidates returned from Gemini", d);
+            return json({ error: "AI failed to generate a response", details: d }, 500);
+          }
+
+          const text = candidate.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
+          if (!text) {
+            return json({ error: "AI returned empty text" }, 500);
+          }
+
+          try {
+            return json(JSON.parse(text));
+          } catch (pe) {
+            console.warn("[AI] JSON Parse error for text:", text);
+            return json({ error: "AI Format Error (Invalid JSON)", raw: text }, 500);
+          }
+        } catch (e) {
+          console.error("[AI] Unexpected error in generate-copy:", e.message);
+          return json({ error: `Internal Server Error: ${e.message}` }, 500);
         }
+
       }
+
 
       if (path === "/api/ai/generate-assets" && method === "POST") {
         const body = await request.json();
@@ -1339,12 +1415,12 @@ export default {
         if (!key) return json({ error: "Gemini Key not configured" }, 400);
 
         const type = body.type || "logo";
-        const promptGen = `Act as an expert AI prompt engineer. Create a highly detailed, professional prompt for an image generator (DALL-E 3 style).
-          Brand: "${body.brand}"
+        const promptGen = `Act as an expert AI prompt engineer.Create a highly detailed, professional prompt for an image generator(DALL - E 3 style).
+            Brand: "${body.brand}"
           Context: "${type === 'logo' ? 'Fintech logo design' : 'High-converting hero background for loan site'}"
           Style: "${body.style || 'Modern & Clean'}"
           Requirements: ${type === 'logo' ? 'Flat vector, minimalist, white background, no text except brand' : 'Photorealistic, soft lighting, lots of copy space, 16:9'}
-          Output: ONLY the refined prompt text. No chatter.`;
+          Output: ONLY the refined prompt text.No chatter.`;
 
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1480,11 +1556,23 @@ export default {
         const branch = body.branch || "main";
         const environment = body.environment || "production";
         const files = body.files && typeof body.files === "object" ? body.files : null;
-        if (!files || !files["index.html"]) {
-          return json({ success: false, error: "Missing files payload with required index.html" }, 400);
+        if (!files) {
+          return json({ success: false, error: "Missing files payload" }, 400);
         }
 
-        const settingsRows = await db.prepare("SELECT key, value FROM settings WHERE key IN ('githubToken','githubRepoOwner','githubRepoName','githubRepoBranch')").all();
+        const hasIndexHtml = !!files["index.html"];
+        const isAstroProject =
+          (!!files["package.json"] && (!!files["astro.config.mjs"] || !!files["astro.config.ts"]))
+          || !!files["src/pages/index.astro"];
+
+        if (!hasIndexHtml && !isAstroProject) {
+          return json({
+            success: false,
+            error: "Unsupported payload: provide index.html or an Astro project (package.json + astro.config.* or src/pages/index.astro)",
+          }, 400);
+        }
+
+        const settingsRows = await db.prepare("SELECT key, value FROM settings WHERE key IN ('githubToken','githubRepoOwner','githubRepoName','githubRepoBranch','githubDeployWorkflow')").all();
         const settingsObj = {};
         (settingsRows?.results || []).forEach(r => {
           settingsObj[r.key] = r.value;
@@ -1517,10 +1605,9 @@ export default {
           templateId: body.templateId || "classic",
           environment,
           targets: Array.isArray(body.targets) && body.targets.length ? body.targets : [{ provider: "github-actions" }],
-          build: {
-            entry: "index.html",
-            extraFiles: Object.keys(files).filter(name => name !== "index.html"),
-          },
+          build: hasIndexHtml
+            ? { entry: "index.html", extraFiles: Object.keys(files).filter(name => name !== "index.html") }
+            : { entry: "astro", extraFiles: Object.keys(files) },
           tracking: {
             googleAdsId: body.tracking?.googleAdsId || "",
             pixelEndpoint: body.tracking?.pixelEndpoint || "",
@@ -1562,7 +1649,7 @@ export default {
           const commitInfo = await githubApi(token, `/repos/${repoOwner}/${repoName}/commits/${encodeURIComponent(deployBranch)}`);
           const commitSha = commitInfo?.sha || "";
           const commitUrl = commitInfo?.html_url || `https://github.com/${repoOwner}/${repoName}/commit/${commitSha}`;
-          const workflowFile = String(body.workflowFile || "deploy-sites.yml").trim() || "deploy-sites.yml";
+          const workflowFile = String(body.workflowFile || settingsObj.githubDeployWorkflow || "deploy-sites.yml").trim() || "deploy-sites.yml";
           const workflowUrl = `https://github.com/${repoOwner}/${repoName}/actions/workflows/${workflowFile}`;
           let workflowDispatched = false;
           let workflowDispatchError = "";
@@ -2055,8 +2142,17 @@ export default {
           Password: acctRow.secret_key,
           responseformat: 'JSON',
           Domain: domain,
+          responseformat: 'JSON',
+          Domain: domain,
           Period: period,
         });
+
+        // Add nameservers if provided
+        if (body.nameservers && Array.isArray(body.nameservers)) {
+          body.nameservers.forEach((ns, i) => {
+            formData.append(`Ns${i + 1}`, ns);
+          });
+        }
 
         const res = await fetch(apiUrl, {
           method: 'POST',
@@ -2081,6 +2177,13 @@ export default {
         const { domain, nameservers, provider, accountId } = body;
         if (!domain || !nameservers || !Array.isArray(nameservers)) return json({ error: 'Missing domain or nameservers' }, 400);
 
+        const cleanedNameservers = nameservers
+          .map((ns) => String(ns || '').trim().toLowerCase().replace(/\.$/, ''))
+          .filter(Boolean);
+        if (cleanedNameservers.length < 2) {
+          return json({ error: 'At least 2 valid nameservers are required' }, 400);
+        }
+
         const acctRow = accountId
           ? await db.prepare('SELECT * FROM registrar_accounts WHERE id = ?').bind(accountId).first()
           : await db.prepare('SELECT * FROM registrar_accounts WHERE provider = ? LIMIT 1').bind(provider).first();
@@ -2092,21 +2195,36 @@ export default {
           Password: acctRow.secret_key,
           responseformat: 'JSON',
           Domain: domain,
-          Ns_list: nameservers.join(','),
+          Ns_list: cleanedNameservers.join(','),
         });
+
+        // Internet.bs Domain/Update expects Ns_list; Ns1/Ns2 can be rejected.
 
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: formData.toString(),
         });
-        const data = await res.json();
+
+        const rawText = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(rawText);
+        } catch (_e) {
+          data = { status: 'FAILURE', message: rawText?.slice(0, 800) || 'Non-JSON response from registrar' };
+        }
+
+        const statusText = String(data?.status || '').toLowerCase();
+        const isSuccess = statusText === 'success' || statusText === 'ok';
+        const message = data?.message || data?.error || data?.msg || 'Unknown registrar response';
+
         return json({
-          success: data.status?.toLowerCase() !== 'failure',
+          success: isSuccess,
           domain,
-          nameservers,
+          nameservers: cleanedNameservers,
           status: data.status,
-          message: data.message,
+          message,
+          raw: data,
         });
       }
 
@@ -2192,6 +2310,16 @@ export default {
         });
       }
 
+      if (path === '/api/automation/registrar/ip' && method === 'GET') {
+        try {
+          const res = await fetch('https://api.ipify.org?format=json');
+          const data = await res.json();
+          return json({ success: true, ip: data.ip });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 500);
+        }
+      }
+
       // ═══ CLOUDFLARE AUTOMATION ═══
       // Validate CF API token and account ID
       if (path === '/api/automation/cf-validate' && method === 'POST') {
@@ -2209,7 +2337,7 @@ export default {
           try {
             const data = await res.json();
             errMsg = data.errors?.[0]?.message || errMsg;
-          } catch {}
+          } catch { }
           return json({ success: false, error: errMsg }, 400);
         }
 
@@ -2227,12 +2355,16 @@ export default {
         if (!domain || !cfAccountId) return json({ error: 'Missing domain or cfAccountId' }, 400);
 
         let token = cfApiToken || apiToken || '';
-        if (!token) {
-          const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
-            .bind(cfAccountId, cfAccountId).first();
-          if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
-          token = acctRow.api_token || '';
+        let resolvedAccountId = cfAccountId;
+
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
+
+        if (acctRow) {
+          if (!token) token = acctRow.api_token || '';
+          resolvedAccountId = acctRow.account_id || cfAccountId;
         }
+
         if (!token) return json({ error: 'Cloudflare API token not found' }, 400);
 
         // First check if zone exists
@@ -2248,7 +2380,7 @@ export default {
         const createRes = await fetch('https://api.cloudflare.com/client/v4/zones', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: domain, account: { id: cfAccountId }, type: 'full' }),
+          body: JSON.stringify({ name: domain, account: { id: resolvedAccountId }, type: 'full' }),
         });
         const createData = await createRes.json();
         if (!createData.success) {
@@ -2264,12 +2396,13 @@ export default {
         if (!zoneId || !cfAccountId) return json({ error: 'Missing zoneId or cfAccountId' }, 400);
 
         let token = apiToken;
-        if (!token) {
-          const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
-            .bind(cfAccountId, cfAccountId).first();
-          if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
-          token = acctRow.api_token || '';
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
+
+        if (acctRow) {
+          if (!token) token = acctRow.api_token || '';
         }
+
         if (!token) return json({ error: 'Cloudflare API token not found' }, 400);
 
         const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
@@ -2287,12 +2420,13 @@ export default {
         }
 
         let token = apiToken || '';
-        if (!token) {
-          const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
-            .bind(cfAccountId, cfAccountId).first();
-          if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
-          token = acctRow.api_token || '';
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
+
+        if (acctRow) {
+          if (!token) token = acctRow.api_token || '';
         }
+
         if (!token) return json({ error: 'Cloudflare API token not found' }, 400);
 
         const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
@@ -2311,12 +2445,13 @@ export default {
         if (!dnsRecordId || !zoneId || !cfAccountId) return json({ error: 'Missing dnsRecordId, zoneId, or cfAccountId' }, 400);
 
         let token = apiToken || '';
-        if (!token) {
-          const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
-            .bind(cfAccountId, cfAccountId).first();
-          if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
-          token = acctRow.api_token || '';
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
+
+        if (acctRow) {
+          if (!token) token = acctRow.api_token || '';
         }
+
         if (!token) return json({ error: 'Cloudflare API token not found' }, 400);
 
         const updateData = {};
@@ -2344,12 +2479,13 @@ export default {
         if (!dnsRecordId || !zoneId || !cfAccountId) return json({ error: 'Missing dnsRecordId, zoneId, or cfAccountId' }, 400);
 
         let token = apiToken;
-        if (!token) {
-          const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
-            .bind(cfAccountId, cfAccountId).first();
-          if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
-          token = acctRow.api_token || '';
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
+
+        if (acctRow) {
+          if (!token) token = acctRow.api_token || '';
         }
+
         if (!token) return json({ error: 'Cloudflare API token not found' }, 400);
 
         const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${dnsRecordId}`, {
@@ -2405,10 +2541,13 @@ export default {
         const { projectName, cfAccountId } = body;
         if (!projectName || !cfAccountId) return json({ error: 'Missing projectName or cfAccountId' }, 400);
 
-        const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ?').bind(cfAccountId).first();
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
         if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
 
-        const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/pages/projects/${encodeURIComponent(projectName)}`, {
+        const resolvedAccountId = acctRow.account_id || cfAccountId;
+
+        const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${resolvedAccountId}/pages/projects/${encodeURIComponent(projectName)}`, {
           headers: { 'Authorization': `Bearer ${acctRow.api_token}`, 'Content-Type': 'application/json' },
         });
         const data = await res.json();
@@ -2424,10 +2563,13 @@ export default {
         const { scriptName, cfAccountId } = body;
         if (!scriptName || !cfAccountId) return json({ error: 'Missing scriptName or cfAccountId' }, 400);
 
-        const acctRow = await db.prepare('SELECT api_token FROM cf_accounts WHERE id = ?').bind(cfAccountId).first();
+        const acctRow = await db.prepare('SELECT api_token, account_id FROM cf_accounts WHERE id = ? OR account_id = ? LIMIT 1')
+          .bind(cfAccountId, cfAccountId).first();
         if (!acctRow) return json({ error: 'Cloudflare account not found' }, 404);
 
-        const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/workers/scripts/${encodeURIComponent(scriptName)}`, {
+        const resolvedAccountId = acctRow.account_id || cfAccountId;
+
+        const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${resolvedAccountId}/workers/scripts/${encodeURIComponent(scriptName)}`, {
           headers: { 'Authorization': `Bearer ${acctRow.api_token}`, 'Content-Type': 'application/json' },
         });
         const data = await res.json();
@@ -2677,7 +2819,7 @@ export default {
             let errData = {};
             try {
               errData = JSON.parse(responseText);
-            } catch {}
+            } catch { }
 
             const errorMessage = errData.errors?.[0]?.message || errData.errors?.[0]?.code || responseText || `HTTP ${res.status}`;
 

@@ -5,20 +5,20 @@ import { LS, uid, now, hsl } from "../utils";
 import { makeThemeJson, htmlToZip, astroProjectToZip } from "../utils/lp-generator";
 import { generateHtmlByTemplate, generateAstroProjectByTemplate, generateApplyPageByTemplate } from "../utils/template-router";
 
-import { deployTo, DEPLOY_TARGETS, getAvailableTargets } from "../utils/deployers";
+import { deployTo, DEPLOY_TARGETS, getAvailableTargets, checkDeployStatus } from "../utils/deployers";
 import { InputField as Inp } from "./ui/input-field";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { cn } from "../lib/utils";
 
-export function Sites({ sites, del, notify, startCreate, settings, addDeploy, ops }) {
+export function Sites({ sites, del, notify, startCreate, settings, addDeploy, ops, updateSite }) {
     const [search, setSearch] = useState("");
     const [groupBy, setGroupBy] = useState("google-ads");
     const [onlyIssues, setOnlyIssues] = useState(false);
     const [quickFilter, setQuickFilter] = useState(() => {
         const stored = LS.get("sitesQuickFilter");
-        const allowed = ["all", "banned", "warming", "no-domain", "not-deployed"];
+        const allowed = ["all", "deployed", "banned", "warming", "no-domain", "not-deployed"];
         return allowed.includes(stored) ? stored : "all";
     });
     const [sortBy, setSortBy] = useState(() => {
@@ -27,6 +27,8 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
         return allowed.includes(stored) ? stored : "issues-first";
     });
     const [deploying, setDeploying] = useState(null); // { siteId, target }
+    const [editingPolicySite, setEditingPolicySite] = useState(null);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
     const [deployUrls, setDeployUrls] = useState(() => {
         const stored = LS.get("deployUrls") || {};
         // Migrate legacy flat deployUrls to per-target format
@@ -88,6 +90,64 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
+
+    const handleBulkDelete = async () => {
+        if (!confirm(`⚠️ DANGER ZONE!\n\nThis will PERMANENTLY delete:\n• All ${sites.length} projects from dashboard\n• All deployed sites from Netlify, Cloudflare Pages, etc.\n• All deployment records\n\nThis action CANNOT be undone!\n\nType "DELETE ALL" to confirm:`)) {
+            const confirmation = prompt("Type 'DELETE ALL' to proceed:");
+            if (confirmation !== "DELETE ALL") {
+                notify("Bulk delete cancelled", "warning");
+                return;
+            }
+        }
+
+        setBulkDeleting(true);
+        const results = { success: [], failed: [] };
+        
+        try {
+            // Import deleteProject function
+            const { deleteProject } = await import("../utils/deployers/index.js");
+            
+            // Delete from deployment platforms first
+            for (const site of sites) {
+                const deployedTargets = getDeployedTargets(site.id);
+                
+                for (const target of deployedTargets) {
+                    try {
+                        const result = await deleteProject(target.target, site, settings);
+                        if (result.success) {
+                            results.success.push(`${site.brand} (${target.target})`);
+                        } else {
+                            results.failed.push(`${site.brand} (${target.target}): ${result.error}`);
+                        }
+                    } catch (error) {
+                        results.failed.push(`${site.brand} (${target.target}): ${error.message}`);
+                    }
+                }
+            }
+            
+            // Clear all deploy URLs
+            setDeployUrls({});
+            LS.set("deployUrls", {});
+            
+            // Delete all sites from dashboard
+            for (const site of sites) {
+                del(site.id);
+            }
+            
+            // Show results
+            if (results.success.length > 0) {
+                notify(`✅ Deleted ${results.success.length} projects:\n${results.success.join("\n")}`);
+            }
+            if (results.failed.length > 0) {
+                notify(`⚠️ Failed to delete ${results.failed.length} projects:\n${results.failed.join("\n")}`, "warning");
+            }
+            
+        } catch (error) {
+            notify(`Bulk delete failed: ${error.message}`, "danger");
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
 
     const handleDelete = (site) => {
         if (!confirm(`Delete "${site.brand}"?\nThis will also remove all deploy records.`)) return;
@@ -351,6 +411,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
         const policyStatus = getPolicyStatus(site);
         const deployedCount = getDeployedTargets(site.id).length;
 
+        if (quickFilter === "deployed") return deployedCount > 0;
         if (quickFilter === "banned") return policyStatus === "Banned";
         if (quickFilter === "warming") return policyStatus === "Warming";
         if (quickFilter === "no-domain") return !site.domain;
@@ -409,6 +470,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
 
     const getScopeHelpText = (mode) => {
         if (mode === "issues") return "Show issue-only sites in current search scope";
+        if (mode === "deployed") return "Show sites that already have deployments";
         if (mode === "not-deployed") return "Show sites that have no deployments yet";
         if (mode === "warming") return "Show warming policy status sites";
         if (mode === "banned") return "Show banned policy status sites";
@@ -424,6 +486,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
     const quickFilterCounts = useMemo(() => {
         const counts = {
             all: baseScopedSites.length,
+            deployed: 0,
             banned: 0,
             warming: 0,
             "no-domain": 0,
@@ -433,6 +496,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
         baseScopedSites.forEach((site) => {
             const policyStatus = getPolicyStatus(site);
             const deployedCount = getDeployedTargets(site.id).length;
+            if (deployedCount > 0) counts.deployed += 1;
             if (policyStatus === "Banned") counts.banned += 1;
             if (policyStatus === "Warming") counts.warming += 1;
             if (!site.domain) counts["no-domain"] += 1;
@@ -496,7 +560,19 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
                     <h1 className="text-[22px] font-bold m-0">My Sites</h1>
                     <p className="text-[hsl(var(--muted-foreground))] text-xs mt-0.5">Manage & deploy your loan landing pages</p>
                 </div>
-                <Button onClick={startCreate}>➕ Create LP</Button>
+                <div className="flex gap-2">
+                    {sites.length > 0 && (
+                        <Button 
+                            onClick={handleBulkDelete} 
+                            disabled={bulkDeleting}
+                            variant="destructive"
+                            className="px-3 py-2 text-xs"
+                        >
+                            {bulkDeleting ? "🔄 Deleting..." : "🗑️ Delete All"}
+                        </Button>
+                    )}
+                    <Button onClick={startCreate}>➕ Create LP</Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-4 gap-2.5 mb-4">
@@ -538,6 +614,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
             <div className="flex flex-wrap gap-2 mb-3.5">
                 {[
                     { id: "all", label: "All" },
+                    { id: "deployed", label: "Deployed" },
                     { id: "banned", label: "Banned" },
                     { id: "warming", label: "Warming" },
                     { id: "no-domain", label: "No Domain" },
@@ -549,7 +626,9 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
                             className={cn(
                                 "border rounded-full text-[11px] font-bold px-2.5 py-1.5 cursor-pointer transition-all",
                                 active
-                                    ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))/13] text-[hsl(var(--primary))]"
+                                    ? chip.id === "deployed"
+                                        ? "border-[hsl(var(--success))] bg-[hsl(var(--success))/13] text-[hsl(var(--success))]"
+                                        : "border-[hsl(var(--primary))] bg-[hsl(var(--primary))/13] text-[hsl(var(--primary))]"
                                     : "border-[hsl(var(--border))] bg-[hsl(var(--input))] text-[hsl(var(--muted-foreground))]"
                             )}>
                             {chip.label} ({quickFilterCounts[chip.id] || 0})
@@ -571,7 +650,7 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
                             <div className="flex justify-between items-center mb-2.5 flex-wrap gap-2">
                                 <div className="text-[13px] font-bold">{group.label}</div>
                                 <div className="flex gap-1.5 flex-wrap">
-                                    {[{scope:"all",content:<Badge variant="default">{group.sites.length} site(s)</Badge>},{scope:"all",content:<Badge variant="success">{group.deployed} deployed</Badge>},{scope:"issues",content:<Badge variant="warning">{group.issue} issue</Badge>}].map((b,i)=>(
+                                    {[{scope:"all",content:<Badge variant="default">{group.sites.length} site(s)</Badge>},{scope:"deployed",content:<Badge variant="success">{group.deployed} deployed</Badge>},{scope:"issues",content:<Badge variant="warning">{group.issue} issue</Badge>}].map((b,i)=>(
                                         <button key={i} type="button" title={getScopeHelpText(b.scope)} onClick={() => applyQuickScope(b.scope)}
                                             className={cn("rounded-full px-0.5 py-0 border cursor-pointer transition-all", isQuickScopeActive(b.scope) ? "border-[hsl(var(--primary))/40] bg-[hsl(var(--primary))/12]" : "border-transparent bg-transparent")}>
                                             {b.content}
@@ -629,7 +708,16 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
                                                 <div className="flex gap-1.5 items-center flex-wrap mt-2">
                                                     <Badge variant="default">{templateLabel}</Badge>
                                                     <Badge style={{ background: `${health.color}22`, color: health.color, border: `1px solid ${health.color}44` }}>{health.label}</Badge>
-                                                    <Badge style={{ background: `${policyTone.color}22`, color: policyTone.color, border: `1px solid ${policyTone.color}44` }}>{policyTone.label}</Badge>
+                                                    <Badge style={{ background: `${policyTone.color}22`, color: policyTone.color, border: `1px solid ${policyTone.color}44` }}>
+                                                        {policyTone.label}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setEditingPolicySite(s.id); }}
+                                                            className="ml-1 text-[8px] underline hover:no-underline cursor-pointer"
+                                                            style={{ opacity: 0.7 }}
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                    </Badge>
                                                     <Badge variant={deployed.length > 0 ? "success" : "secondary"}>{deployed.length > 0 ? `${deployed.length} target(s)` : "0 targets"}</Badge>
                                                     <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Updated {formatAgo(latestUpdate)}</span>
                                                 </div>
@@ -649,21 +737,36 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
                                                     )}
                                                 </div>
 
-                                                {deployed.length > 0 && (
-                                                    <div className="mt-1.5">
-                                                        {deployed.map(({ target, url }) => (
-                                                            <a key={target} href={url} target="_blank" rel="noreferrer"
-                                                                className="flex items-center gap-1 text-[10px] text-[hsl(var(--accent))] no-underline mb-0.5">
-                                                                <span>{DEPLOY_TARGETS.find(t => t.id === target)?.icon || "🚀"}</span>
-                                                                <span className="overflow-hidden text-ellipsis whitespace-nowrap">{url}</span>
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                <DeployStatusChecker
+                                                    site={s}
+                                                    deployedTargets={deployed}
+                                                    settings={settings}
+                                                />
 
                                                 <div className="flex flex-wrap gap-1.5 mt-3">
                                                     <Button variant="ghost" onClick={() => setPreview(s)} className="px-2.5 py-1.5 text-[10px] h-auto">👁 Preview</Button>
                                                     <Button variant="ghost" onClick={() => startCreate(s)} className="px-2.5 py-1.5 text-[10px] h-auto">🔄 Edit & Redeploy</Button>
+
+                                                    {editingPolicySite === s.id && (
+                                                        <div className="absolute top-full right-0 mt-1 bg-white border border-[hsl(var(--border))] rounded-lg shadow-lg p-2 z-50">
+                                                            <div className="text-xs font-semibold mb-2">Set Policy Status:</div>
+                                                            {["Warming", "Limited", "Banned", "Unknown"].map(status => (
+                                                                <button
+                                                                    key={status}
+                                                                    onClick={() => handlePolicyChange(s, status)}
+                                                                    className="block w-full text-left px-2 py-1 text-xs hover:bg-[hsl(var(--accent))/10] rounded"
+                                                                >
+                                                                    {status}
+                                                                </button>
+                                                            ))}
+                                                            <button
+                                                                onClick={() => setEditingPolicySite(null)}
+                                                                className="mt-2 w-full text-left px-2 py-1 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))/10] rounded"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    )}
 
                                                     <div className="relative" ref={openDownload === s.id ? downloadRef : null}>
                                                         <Button variant="ghost" onClick={() => setOpenDownload(openDownload === s.id ? null : s.id)} className="px-2.5 py-1.5 text-[10px] h-auto">📥 Download ▾</Button>
@@ -714,6 +817,93 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
                 </div>,
                 document.body
             )}
+        </div>
+    );
+}
+
+/* ─── Deploy Status Checker Component ─── */
+
+const STATUS_META = {
+    live:      { icon: "✅", label: "Live",     color: "#22c55e" },
+    building:  { icon: "🔄", label: "Building", color: "#f59e0b" },
+    pending:   { icon: "⏳", label: "Pending",  color: "#94a3b8" },
+    failed:    { icon: "❌", label: "Failed",   color: "#ef4444" },
+    unknown:   { icon: "❓", label: "Unknown",  color: "#94a3b8" },
+    no_deploys:{ icon: "📭", label: "No deploys", color: "#94a3b8" },
+};
+
+function DeployStatusChecker({ site, deployedTargets, settings }) {
+    const [statuses, setStatuses] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [lastChecked, setLastChecked] = useState(null);
+
+    const checkAll = async () => {
+        if (!deployedTargets.length) return;
+        setLoading(true);
+        const results = {};
+        await Promise.all(
+            deployedTargets.map(async ({ target }) => {
+                try {
+                    const res = await checkDeployStatus(target, site, settings);
+                    results[target] = res;
+                } catch (e) {
+                    results[target] = { success: false, error: e.message };
+                }
+            })
+        );
+        setStatuses(results);
+        setLastChecked(new Date());
+        setLoading(false);
+    };
+
+    if (!deployedTargets.length) return null;
+
+    return (
+        <div className="mt-2 border border-[hsl(var(--border))] rounded-lg p-2 bg-[hsl(var(--muted))/20]">
+            <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">
+                    Deploy Status
+                    {lastChecked && (
+                        <span className="ml-1.5 font-normal opacity-60">
+                            checked {lastChecked.toLocaleTimeString()}
+                        </span>
+                    )}
+                </span>
+                <button
+                    onClick={checkAll}
+                    disabled={loading}
+                    className="text-[9px] px-2 py-0.5 rounded border border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))/10] transition-colors disabled:opacity-50"
+                >
+                    {loading ? "Checking…" : "🔄 Check"}
+                </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+                {deployedTargets.map(({ target, url }) => {
+                    const t = DEPLOY_TARGETS.find(d => d.id === target);
+                    const s = statuses[target];
+                    const meta = s?.status ? (STATUS_META[s.status] || STATUS_META.unknown) : null;
+                    return (
+                        <a
+                            key={target}
+                            href={s?.url || url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border no-underline transition-colors"
+                            style={{
+                                borderColor: meta ? `${meta.color}44` : "hsl(var(--border))",
+                                background: meta ? `${meta.color}11` : "transparent",
+                                color: meta ? meta.color : "hsl(var(--muted-foreground))",
+                            }}
+                            title={s?.error || s?.url || url}
+                        >
+                            <span>{t?.icon || "🚀"}</span>
+                            <span className="font-medium">{t?.label || target}</span>
+                            {meta && <span>{meta.icon} {meta.label}</span>}
+                            {!meta && <span className="opacity-50">—</span>}
+                        </a>
+                    );
+                })}
+            </div>
         </div>
     );
 }

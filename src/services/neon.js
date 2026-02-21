@@ -25,8 +25,7 @@ export function initNeon(connStr) {
   connectionString = connStr;
   try {
     sql = neon(connStr);
-    reconnectAttempts = 0; // Reset reconnect attempts on successful init
-    console.log("[neon] Connection initialized");
+    reconnectAttempts = 0;
     return true;
   } catch (e) {
     console.warn("[neon] Init failed:", e.message);
@@ -44,24 +43,15 @@ function ensureConnection() {
     try {
       sql = neon(connectionString);
       reconnectAttempts++;
-      console.log(`[neon] Reconnected (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
-      
-      // Test the connection immediately
       sql`SELECT 1 as ok`.catch(() => {
-        // If test fails, nullify the connection to trigger retry next time
         sql = null;
-        console.warn("[neon] Connection test failed, will retry");
       });
     } catch (e) {
-      console.warn(`[neon] Reconnect failed (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}):`, e.message);
       reconnectAttempts++;
-      
-      // If we've maxed out attempts, reset after a delay
       if (reconnectAttempts >= maxReconnectAttempts) {
         setTimeout(() => {
           reconnectAttempts = 0;
-          console.log("[neon] Resetting reconnect attempts");
-        }, reconnectDelay * 3); // Wait longer before resetting
+        }, reconnectDelay * 3);
       }
     }
   }
@@ -82,7 +72,6 @@ export async function ping() {
     const rows = await sql`SELECT 1 as ok`;
     return rows?.[0]?.ok === 1;
   } catch (e) {
-    console.warn("[neon] Ping failed:", e.message);
     return false;
   }
 }
@@ -102,7 +91,6 @@ export async function loadSettings() {
     }
     return result;
   } catch (e) {
-    console.warn("[neon] loadSettings error:", e.message);
     return null;
   }
 }
@@ -115,7 +103,7 @@ export async function saveSettings(obj) {
     const merged = { ...existing, ...obj };
     localStorage.setItem("lpf2-settings", JSON.stringify(merged));
   } catch (e) {
-    console.warn("[neon] localStorage fallback error:", e.message);
+    // localStorage error - ignore
   }
 
   if (!ensureConnection()) return false;
@@ -129,7 +117,6 @@ export async function saveSettings(obj) {
     }
     return true;
   } catch (e) {
-    console.warn("[neon] saveSettings error:", e.message);
     return false;
   }
 }
@@ -143,38 +130,35 @@ export async function loadSites() {
   if (!ensureConnection()) return null;
   try {
     const rows = await sql`SELECT id, data, created_at FROM sites ORDER BY created_at DESC`;
-    const sites = rows.map(r => {
-      const site = { ...r.data, id: r.id, _createdAt: r.created_at };
-      console.log("[neon] loadSites - site:", { id: site.id, brand: site.brand, templateId: site.templateId });
-      return site;
-    });
-    console.log("[neon] loadSites - total sites:", sites.length);
-    return sites;
+    return rows.map(r => ({ ...r.data, id: r.id, _createdAt: r.created_at }));
   } catch (e) {
-    console.warn("[neon] loadSites error:", e.message);
     return null;
   }
 }
 
 /** Upsert a site */
 export async function saveSite(site) {
-  if (!ensureConnection()) {
-    console.warn("[neon] saveSite - no connection");
-    return false;
-  }
+  if (!ensureConnection()) return false;
   try {
-    const { id, ...data } = site;
-    console.log("[neon] saveSite - saving site with templateId:", data.templateId);
-    console.log("[neon] saveSite - data keys:", Object.keys(data));
+    const { id: rawId, ...data } = site;
+    const id = rawId || `site-${Date.now().toString(36)}`;
+    console.log("[neon] saveSite id:", id, "type:", typeof id);
+    console.log("[neon] saveSite called with templateId:", data.templateId);
+    
+    const safeData = JSON.parse(JSON.stringify(data, (_, v) =>
+      typeof v === "function" || (v instanceof Node) || v === window ? undefined : v
+    ));
     await sql`
       INSERT INTO sites (id, data, created_at, updated_at)
-      VALUES (${id}, ${JSON.stringify(data)}, now(), now())
-      ON CONFLICT (id) DO UPDATE SET data = ${JSON.stringify(data)}, updated_at = now()
+      VALUES (${id}, ${JSON.stringify(safeData)}, now(), now())
+      ON CONFLICT (id) DO UPDATE SET
+        data = EXCLUDED.data,
+        updated_at = now()
     `;
-    console.log("[neon] saveSite - success");
+    console.log("[neon] saveSite success - templateId saved as:", data.templateId);
     return true;
   } catch (e) {
-    console.warn("[neon] saveSite error:", e.message);
+    console.error("[neon] saveSite error:", e);
     // Try reconnecting on failure
     sql = null;
     return false;
@@ -188,7 +172,6 @@ export async function deleteSite(id) {
     await sql`DELETE FROM sites WHERE id = ${id}`;
     return true;
   } catch (e) {
-    console.warn("[neon] deleteSite error:", e.message);
     return false;
   }
 }
@@ -215,7 +198,6 @@ export async function loadDeploys() {
       ts: r.created_at,
     }));
   } catch (e) {
-    console.warn("[neon] loadDeploys error:", e.message);
     return null;
   }
 }
@@ -231,7 +213,6 @@ export async function saveDeploy(deploy) {
     `;
     return true;
   } catch (e) {
-    console.warn("[neon] saveDeploy error:", e.message);
     return false;
   }
 }
@@ -247,24 +228,21 @@ export async function saveDeploy(deploy) {
 export async function syncFromLocal(localSettings, localSites, localDeploys) {
   if (!ensureConnection()) return;
   try {
-    // Settings
     if (localSettings && Object.keys(localSettings).length > 0) {
       await saveSettings(localSettings);
     }
-    // Sites
     if (localSites?.length > 0) {
       for (const site of localSites) {
         await saveSite(site);
       }
     }
-    // Deploys
     if (localDeploys?.length > 0) {
       for (const d of localDeploys) {
         await saveDeploy(d);
       }
     }
   } catch (e) {
-    console.warn("[neon] syncFromLocal error:", e.message);
+    // sync error - ignore
   }
 }
 
@@ -279,7 +257,6 @@ export function forceReconnect() {
   if (connectionString) {
     sql = null;
     reconnectAttempts = 0;
-    console.log("[neon] Forcing reconnection");
     return ensureConnection();
   }
   return false;
@@ -291,16 +268,11 @@ export function forceReconnect() {
 export function setupVisibilityHandler() {
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible' && !sql && connectionString) {
-      console.log("[neon] Page became visible, attempting reconnection");
-      setTimeout(() => {
-        forceReconnect();
-      }, reconnectDelay);
+      setTimeout(() => forceReconnect(), reconnectDelay);
     }
   };
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
-  
-  // Return cleanup function
   return () => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);
   };

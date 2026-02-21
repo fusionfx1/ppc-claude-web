@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { THEME as T } from "../constants";
+import { logError } from "./ErrorLog";
 
 export class ErrorBoundary extends Component {
     constructor(props) {
@@ -13,6 +14,7 @@ export class ErrorBoundary extends Component {
 
     componentDidCatch(error, errorInfo) {
         console.error("ErrorBoundary caught:", error, errorInfo);
+        logError(error, { severity: "critical", componentStack: errorInfo?.componentStack });
     }
 
     render() {

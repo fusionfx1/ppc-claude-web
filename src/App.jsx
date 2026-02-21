@@ -3,6 +3,10 @@ import { api } from "./services/api";
 import * as db from "./services/neon";
 import { THEME as T, WIZARD_DEFAULTS } from "./constants";
 import { uid, now, LS } from "./utils";
+import { refreshCustomTemplates } from "./utils/template-router";
+
+// Custom event for template refresh
+const TEMPLATE_REFRESH_EVENT = 'lp-template-refresh';
 
 // Component Imports
 import { Sidebar } from "./components/Sidebar";
@@ -16,6 +20,8 @@ import { OpsCenter } from "./components/OpsCenter";
 import { Settings } from "./components/Settings";
 import { DeployHistory } from "./components/DeployHistory";
 import { TemplateEditor } from "./components/TemplateEditor";
+import { TemplateGeneratorModal } from "./components/TemplateGenerator";
+import { ErrorLog, logError } from "./components/ErrorLog";
 
 // Neon connection string — stored in settings or hardcoded for now
 const NEON_URL = import.meta.env.PUBLIC_NEON_URL || "";
@@ -31,9 +37,32 @@ export default function App() {
   const [sideCollapsed, setSideCollapsed] = useState(false);
   const [deploys, setDeploys] = useState([]);
   const [registry, setRegistry] = useState([]);
+  const [templateGenOpen, setTemplateGenOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [apiOk, setApiOk] = useState(false);
   const [neonOk, setNeonOk] = useState(false);
+
+  // Global error capture — feeds into Error Log tab
+  useEffect(() => {
+    const onError = (event) => {
+      logError(event.error || new Error(event.message || "Unknown error"), {
+        severity: "error",
+        source: event.filename,
+        line: event.lineno,
+        col: event.colno,
+      });
+    };
+    const onUnhandled = (event) => {
+      const err = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+      logError(err, { severity: "error", type: "unhandledrejection" });
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandled);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandled);
+    };
+  }, []);
 
   useEffect(() => {
     bootApp();
@@ -194,7 +223,9 @@ export default function App() {
   };
 
   const startCreate = (existingSite = null) => {
-    if (existingSite) {
+    // Guard: reject MouseEvent or non-plain-object arguments (e.g. from onClick handlers)
+    const isValidSite = existingSite && typeof existingSite === "object" && !(existingSite instanceof Event) && !existingSite.nativeEvent && existingSite.id;
+    if (isValidSite) {
       // Edit mode: keep original ID for update/redeploy
       setWizData({ ...WIZARD_DEFAULTS, ...existingSite, _editMode: true });
     } else {
@@ -203,10 +234,17 @@ export default function App() {
     setPage("create");
   };
 
+  // Keep only plain serializable site fields — drops React event/DOM properties
+  const SITE_FIELDS = new Set(["id","brand","domain","tagline","email","templateId","loanType","amountMin","amountMax","aprMin","aprMax","colorId","fontId","layout","radius","trustBadgeStyle","trustBadgeIconTone","h1","h1span","badge","cta","sub","conversionId","formStartLabel","formSubmitLabel","aid","network","redirectUrl","voluumId","voluumDomain","lang","faviconDataUrl","ogImageDataUrl","formEmbed","status","createdAt","updatedAt","cost"]);
+  const sanitizeSite = (obj) => Object.fromEntries(
+    Object.entries(obj).filter(([k, v]) => SITE_FIELDS.has(k) && typeof v !== "function")
+  );
+
   const addSite = async (site) => {
     if (site._editMode) {
       // Update existing site (redeploy)
-      const { _editMode, ...siteData } = site;
+      const { _editMode, ...rawData } = site;
+      const siteData = sanitizeSite(rawData);
       setSites(p => p.map(s => s.id === siteData.id ? { ...s, ...siteData, updatedAt: now() } : s));
 
       if (neonOk) db.saveSite(siteData).catch(() => { });
@@ -215,16 +253,25 @@ export default function App() {
       notify(`${siteData.brand} updated!`);
     } else {
       // New site
-      setSites(p => [site, ...p]);
-      setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (site.cost || 0)).toFixed(3) }));
+      const cleanSite = sanitizeSite(site);
+      setSites(p => [cleanSite, ...p]);
+      setStats(p => ({ builds: p.builds + 1, spend: +(p.spend + (cleanSite.cost || 0)).toFixed(3) }));
 
       // Wait for save to complete before navigating
-      if (neonOk) await db.saveSite(site).catch(() => { });
-      else if (apiOk) await api.post("/sites", site).catch(() => { });
+      if (neonOk) await db.saveSite(cleanSite).catch(() => { });
+      else if (apiOk) await api.post("/sites", cleanSite).catch(() => { });
 
-      notify(`${site.brand} created!`);
+      notify(`${cleanSite.brand} created!`);
     }
     setPage("sites");
+  };
+
+  const updateSite = async (site) => {
+    const updatedSite = sanitizeSite({ ...site, updatedAt: now() });
+    setSites(p => p.map(s => s.id === site.id ? updatedSite : s));
+
+    if (neonOk) await db.saveSite(updatedSite).catch(() => { });
+    else if (apiOk) await api.put(`/sites/${site.id}`, updatedSite).catch(() => { });
   };
 
   // Quick fix function to update templateId
@@ -514,22 +561,58 @@ export default function App() {
     <div style={{ display: "flex", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif" }}>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      <Sidebar page={page} setPage={setPage} siteCount={sites.length} startCreate={startCreate}
+      <Sidebar page={page} setPage={setPage} siteCount={sites.length} startCreate={startCreate} startTemplateGen={() => setTemplateGenOpen(true)}
         collapsed={sideCollapsed} toggle={() => setSideCollapsed(p => !p)} />
 
       <main style={{ flex: 1, marginLeft: ml, minHeight: "100vh", transition: "margin .2s" }}>
         <TopBar stats={stats} settings={settings} deploys={deploys} apiOk={apiOk} neonOk={neonOk} onReconnectNeon={recoverNeonConnection} />
         <div style={{ padding: "24px 28px" }}>
           {page === "dashboard" && <Dashboard sites={sites} stats={stats} ops={ops} setPage={setPage} startCreate={startCreate} settings={settings} apiOk={apiOk} neonOk={neonOk} />}
-          {page === "sites" && <Sites sites={sites} del={delSite} notify={notify} startCreate={startCreate} settings={settings} addDeploy={addDeploy} ops={ops} />}
+          {page === "sites" && <Sites sites={sites} del={delSite} notify={notify} startCreate={startCreate} settings={settings} addDeploy={addDeploy} ops={ops} updateSite={updateSite} />}
           {page === "template-editor" && <TemplateEditor notify={notify} />}
           {page === "create" && wizData && <Wizard config={wizData} setConfig={setWizData} addSite={addSite} setPage={setPage} settings={settings} notify={notify} />}
           {page === "variant" && <VariantStudio notify={notify} sites={sites} addSite={addSite} registry={registry} setRegistry={setRegistry} apiOk={apiOk} />}
           {page === "ops" && <OpsCenter data={ops} add={opsAdd} del={opsDel} upd={opsUpd} settings={settings} />}
           {page === "deploys" && <DeployHistory deploys={deploys} />}
+          {page === "error-log" && <ErrorLog />}
           {page === "settings" && <Settings settings={settings} setSettings={handleSaveSettings} stats={stats} apiOk={apiOk} neonOk={neonOk} />}
         </div>
       </main>
+
+      {/* Template Generator Modal */}
+      <TemplateGeneratorModal
+        open={templateGenOpen}
+        onClose={() => setTemplateGenOpen(false)}
+        onSave={async (templateData) => {
+          try {
+            // Save template to database via API
+            const response = await api.post('/templates', {
+              templateId: templateData.newFolderId,
+              name: templateData.templateName,
+              description: templateData.templateDescription,
+              category: templateData.category || 'general',
+              badge: templateData.badge || 'New',
+              sourceCode: templateData.generatedCode,
+              files: templateData.generatedFiles || {},
+            });
+
+            if (response.error) {
+              notify(`Error saving template: ${response.error}`, 'error');
+            } else {
+              notify(`Template "${templateData.templateName}" saved successfully!`, 'success');
+              // Refresh templates cache so it appears in the selector
+              refreshCustomTemplates();
+              // Dispatch event for any listening components
+              window.dispatchEvent(new CustomEvent(TEMPLATE_REFRESH_EVENT, { detail: templateData.newFolderId }));
+              console.log("Template saved:", response);
+            }
+          } catch (e) {
+            notify(`Failed to save template: ${e.message}`, 'error');
+            console.error("Template save error:", e);
+          }
+        }}
+        templates={[]} // Pass available templates if needed
+      />
 
       <style>{`
         @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}

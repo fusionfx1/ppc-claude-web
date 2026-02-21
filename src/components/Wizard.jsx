@@ -78,14 +78,26 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
 
     const upd = (k, v) => setConfig(p => ({ ...p, [k]: v }));
 
+    // Safe JSON serializer — strips non-serializable values (DOM nodes, functions, circular refs)
+    const safeStringify = (obj) => {
+        try {
+            return JSON.stringify(obj, (_, v) => {
+                if (typeof v === "function" || (typeof v === "object" && v !== null && (v instanceof Node || v === window))) return undefined;
+                return v;
+            });
+        } catch {
+            return "{}";
+        }
+    };
+
     // Track initial state for dirty detection
     useEffect(() => {
         if (config && !initialConfig) {
-            setInitialConfig(JSON.stringify(config));
+            setInitialConfig(safeStringify(config));
         }
     }, [config, initialConfig]);
 
-    const isDirty = initialConfig && JSON.stringify(config) !== initialConfig;
+    const isDirty = initialConfig && safeStringify(config) !== initialConfig;
 
     // beforeunload handler for unsaved changes
     useEffect(() => {
@@ -239,7 +251,7 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
                     <Card className="p-7 mb-4" ref={cardRef}>
                         {step === 1 && <StepBrand c={config} u={upd} />}
                         {step === 2 && <StepProduct c={config} u={upd} />}
-                        {step === 3 && <StepDesign c={config} u={upd} />}
+                        {step === 3 && <StepDesign c={config} u={upd} notify={notify} />}
                         {step === 4 && <StepCopy c={config} u={upd} onAiGenerate={handleAiGenerate} aiLoading={aiLoading} />}
                         {step === 5 && <StepTracking c={config} u={upd} />}
                         {step === 6 && <StepReview c={config} building={building} />}
@@ -254,7 +266,7 @@ export function Wizard({ config, setConfig, addSite, setPage, settings, notify }
                 <Card className="p-7 mb-4 max-w-[780px] mx-auto" ref={cardRef}>
                     {step === 1 && <StepBrand c={config} u={upd} />}
                     {step === 2 && <StepProduct c={config} u={upd} />}
-                    {step === 3 && <StepDesign c={config} u={upd} />}
+                    {step === 3 && <StepDesign c={config} u={upd} notify={notify} />}
                     {step === 4 && <StepCopy c={config} u={upd} onAiGenerate={handleAiGenerate} aiLoading={aiLoading} />}
                     {step === 5 && <StepTracking c={config} u={upd} />}
                     {step === 6 && <StepReview c={config} building={building} />}

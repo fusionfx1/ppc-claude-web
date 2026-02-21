@@ -99,19 +99,25 @@ export async function deployTo(target, html, site, settings) {
   }
 
   try {
-    // Build content: if site has extra files, pass as object map for multi-file deploy
-    let content = html;
-    if (site._extraFiles && Object.keys(site._extraFiles).length > 0) {
+    // Build content: support three patterns:
+    // 1. html is already a files map (object) — use directly (e.g. Sites.jsx git-push)
+    // 2. html is a string + site._extraFiles — merge into files map
+    // 3. html is a plain string — single-file deploy
+    let content;
+    if (html && typeof html === "object") {
+      content = html;
+      console.log(`[Deploy] Files-map deploy:`, Object.keys(content).length, "files");
+    } else if (site._extraFiles && Object.keys(site._extraFiles).length > 0) {
       const filesMap = { "index.html": html };
       for (const [path, data] of Object.entries(site._extraFiles)) {
-        // Strip leading "/" for deployers that expect bare filenames
         const cleanPath = path.startsWith("/") ? path.slice(1) : path;
         filesMap[cleanPath] = data;
       }
       content = filesMap;
-      console.log(`[Deploy] Multi-file deploy:`, Object.keys(filesMap), Object.values(filesMap).map(v => v.length + ' bytes'));
+      console.log(`[Deploy] Multi-file deploy:`, Object.keys(filesMap).length, "files");
     } else {
-      console.log(`[Deploy] Single-file deploy: index.html (${html.length} bytes)`);
+      content = html;
+      console.log(`[Deploy] Single-file deploy: index.html (${(html || "").length} bytes)`);
     }
 
     const deployPayload = deployId ? { ...site, _deployRecordId: deployId } : site;
@@ -185,6 +191,46 @@ export async function deployTo(target, html, site, settings) {
     }
 
     return { success: false, target, error: `Deploy failed: ${e.message}` };
+  }
+}
+
+/**
+ * Delete a project from a specific target.
+ * @param {string} target - One of: cf-pages, netlify, cf-workers, s3-cloudfront, vps-ssh
+ * @param {object} site - Site configuration object
+ * @param {object} settings - User settings with API credentials
+ * @returns {Promise<{success: boolean, message?: string, error?: string}>}
+ */
+export async function deleteProject(target, site, settings) {
+  const deployer = DEPLOYERS[target];
+  if (!deployer || !deployer.deleteProject) {
+    return { success: false, error: `Delete not supported for target: ${target}` };
+  }
+  
+  try {
+    return await deployer.deleteProject(site, settings);
+  } catch (error) {
+    return { success: false, error: `Delete failed: ${error.message}` };
+  }
+}
+
+/**
+ * Check live deploy status for a site on a specific target.
+ * @param {string} target - Deploy target id
+ * @param {object} site - Site object
+ * @param {object} settings - User settings with API credentials
+ * @returns {Promise<{success, status, url, platform, error?}>}
+ *   status: "live" | "building" | "pending" | "failed" | "unknown" | "no_deploys"
+ */
+export async function checkDeployStatus(target, site, settings) {
+  const deployer = DEPLOYERS[target];
+  if (!deployer?.checkDeployStatus) {
+    return { success: false, error: `Status check not supported for: ${target}` };
+  }
+  try {
+    return await deployer.checkDeployStatus(site, settings);
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }
 
