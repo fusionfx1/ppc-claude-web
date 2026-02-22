@@ -192,6 +192,14 @@ export function refreshCustomTemplates() {
 export function generateAstroProjectByTemplate(site) {
   const templateId = resolveTemplateId(site);
 
+  // Check custom API templates first — return raw Astro source files
+  if (customTemplatesCache) {
+    const customTemplate = customTemplatesCache.find(t => t.id === templateId || t.template_id === templateId);
+    if (customTemplate && customTemplate.files && Object.keys(customTemplate.files).length > 0) {
+      return customTemplate.files;
+    }
+  }
+
   // Get generator from registry
   const generatorInfo = getTemplateGenerator(templateId, 'astro');
 
