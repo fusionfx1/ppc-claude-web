@@ -179,11 +179,11 @@ export function Sites({ sites, del, notify, startCreate, settings, addDeploy, op
             // For Git Push Pipeline, use Astro project files
             // For other targets, use HTML
             let content;
-            if (target === "git-push") {
+            if (false && target === "git-push-astro-source") {
+                // Reserved: Astro source deploy (requires astro build in CI)
                 console.log("[Sites] Using git-push target, calling generateAstroProjectByTemplate");
                 const astroFiles = generateAstroProjectByTemplate(site);
                 const applyHtml = generateApplyPageByTemplate(site);
-                // Merge apply.html into astro files
                 content = { ...astroFiles, "apply.html": applyHtml };
                 console.log("[Sites] Generated astro files count:", Object.keys(content).length);
             } else {
