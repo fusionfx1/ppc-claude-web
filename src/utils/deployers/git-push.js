@@ -39,6 +39,8 @@ export async function deploy(content, site, settings) {
     repoName: settings.githubRepoName || "",
     branch: settings.githubRepoBranch || "deploy/auto",
     workflowFile: settings.githubDeployWorkflow || "deploy-sites.yml",
+    netlifyTarget: settings.netlifyTarget || "",
+    cfPagesTarget: settings.cfPagesTarget || "",
   };
 
   if (!settings.githubRepoOwner || !settings.githubRepoName) {

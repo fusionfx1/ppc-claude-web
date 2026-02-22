@@ -45,6 +45,8 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
     const [githubRepoName, setGithubRepoName] = useState(settings.githubRepoName || "");
     const [githubRepoBranch, setGithubRepoBranch] = useState(settings.githubRepoBranch || "main");
     const [githubDeployWorkflow, setGithubDeployWorkflow] = useState(settings.githubDeployWorkflow || "deploy-sites.yml");
+    const [netlifyTarget, setNetlifyTarget] = useState(settings.netlifyTarget || "");
+    const [cfPagesTarget, setCfPagesTarget] = useState(settings.cfPagesTarget || "");
     // D1 Database credentials
     const [d1AccountId, setD1AccountId] = useState(settings.d1AccountId || "");
     const [d1DatabaseId, setD1DatabaseId] = useState(settings.d1DatabaseId || "");
@@ -460,6 +462,10 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                         <div><Lbl>Branch</Lbl><Inp value={githubRepoBranch} onChange={setGithubRepoBranch} placeholder="main" /></div>
                         <div><Lbl>Workflow File</Lbl><Inp value={githubDeployWorkflow} onChange={setGithubDeployWorkflow} placeholder="deploy-sites.yml" /></div>
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div><Lbl>Netlify Site ID (for CI deploy)</Lbl><Inp value={netlifyTarget} onChange={setNetlifyTarget} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></div>
+                        <div><Lbl>CF Pages Project Name (for CI deploy)</Lbl><Inp value={cfPagesTarget} onChange={setCfPagesTarget} placeholder="my-lp-project" /></div>
+                    </div>
                     {testResult.github && (
                         <div className={`text-[11px] ${testResult.github === "ok" ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]"}`}>
                             {testResult.github === "ok" ? "✓ GitHub repo accessible" : "✗ GitHub check failed"}
@@ -468,7 +474,7 @@ export function Settings({ settings, setSettings, stats, apiOk, neonOk }) {
                     )}
                     <div className="flex gap-1.5">
                         <Button variant="ghost" onClick={testGitHub} disabled={!githubToken || !githubRepoOwner || !githubRepoName || testing === "github"} className="text-xs">{testing === "github" ? "..." : "🔑 Test"}</Button>
-                        <Button onClick={() => save({ githubToken, githubRepoOwner, githubRepoName, githubRepoBranch, githubDeployWorkflow })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
+                        <Button onClick={() => save({ githubToken, githubRepoOwner, githubRepoName, githubRepoBranch, githubDeployWorkflow, netlifyTarget, cfPagesTarget })} disabled={saving} className="text-xs">{saving ? "Saving..." : "💾 Save"}</Button>
                     </div>
                 </CardContent>
             </Card>
