@@ -1,145 +1,59 @@
-name: Deploy Web & Workers
+name: Deploy LP Factory (Cloudflare Only)
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'apps/**'
-      - 'astro.config.mjs'
-      - 'package.json'
-      - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
-    inputs:
-      target:
-        description: "Deployment target"
-        required: false
-        type: choice
-        options:
-          - all
-          - cloudflare
-          - vercel
-          - netlify
-          - workers
-        default: all
 
 permissions:
   contents: read
-  deployments: write
 
 env:
   NODE_VERSION: '20'
 
 jobs:
-  # ═══════════════════════════════════════════════════════════
-  # DEPLOY TO CLOUDFLARE PAGES
-  # ═══════════════════════════════════════════════════════════
-  deploy-cloudflare:
-    name: Deploy to Cloudflare Pages
+
+  deploy-pages:
+    name: Deploy Cloudflare Pages
     runs-on: ubuntu-latest
-    if: github.event.inputs.target != 'vercel' && github.event.inputs.target != 'netlify' && github.event.inputs.target != 'workers'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Install dependencies
+      # IMPORTANT: build inside apps/lander
+      - name: Install dependencies (root)
         run: npm ci
 
-      - name: Build Astro site
-        run: npm run build
-        env:
-          SITE_URL: ${{ vars.SITE_URL }}
+      - name: Install dependencies (lander)
+        run: |
+          cd apps/lander
+          npm ci
+
+      - name: Build Astro (lander)
+        run: |
+          cd apps/lander
+          npm run build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=lp-factory-web
+          command: pages deploy apps/lander/dist --project-name=lp-factory-web
 
-  # ═══════════════════════════════════════════════════════════
-  # DEPLOY TO VERCEL
-  # ═══════════════════════════════════════════════════════════
-  deploy-vercel:
-    name: Deploy to Vercel
-    runs-on: ubuntu-latest
-    if: github.event.inputs.target != 'cloudflare' && github.event.inputs.target != 'netlify' && github.event.inputs.target != 'workers'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Astro site
-        run: npm run build
-        env:
-          SITE_URL: ${{ vars.VERCEL_SITE_URL }}
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./
-
-  # ═══════════════════════════════════════════════════════════
-  # DEPLOY TO NETLIFY
-  # ═══════════════════════════════════════════════════════════
-  deploy-netlify:
-    name: Deploy to Netlify
-    runs-on: ubuntu-latest
-    if: github.event.inputs.target != 'cloudflare' && github.event.inputs.target != 'vercel' && github.event.inputs.target != 'workers'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Astro site
-        run: npm run build
-        env:
-          SITE_URL: ${{ vars.NETLIFY_SITE_URL }}
-
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v2.1
-        with:
-          publish-dir: './dist'
-          production-branch: main
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Deploy from GitHub Actions"
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-  # ═══════════════════════════════════════════════════════════
-  # DEPLOY CLOUDFLARE WORKERS
-  # ═══════════════════════════════════════════════════════════
   deploy-workers:
     name: Deploy Workers
     runs-on: ubuntu-latest
-    if: github.event.inputs.target != 'vercel' && github.event.inputs.target != 'netlify'
+    needs: deploy-pages
+
     strategy:
       matrix:
         worker:
@@ -147,12 +61,12 @@ jobs:
           - { name: cf-proxy, path: apps/cf-proxy }
           - { name: worker, path: apps/worker }
           - { name: pixel-worker, path: apps/pixel-worker }
-      fail-fast: false
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -167,23 +81,3 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-  # ═══════════════════════════════════════════════════════════
-  # DEPLOYMENT SUMMARY
-  # ═══════════════════════════════════════════════════════════
-  summary:
-    name: Deployment Summary
-    needs: [deploy-cloudflare, deploy-vercel, deploy-netlify, deploy-workers]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate Summary
-        run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Target | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Cloudflare Pages | ${{ needs.deploy-cloudflare.result == 'success' && '✅' || needs.deploy-cloudflare.result == 'skipped' && '⊘' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Vercel | ${{ needs.deploy-vercel.result == 'success' && '✅' || needs.deploy-vercel.result == 'skipped' && '⊘' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Netlify | ${{ needs.deploy-netlify.result == 'success' && '✅' || needs.deploy-netlify.result == 'skipped' && '⊘' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Workers | ${{ needs.deploy-workers.result == 'success' && '✅' || needs.deploy-workers.result == 'skipped' && '⊘' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
