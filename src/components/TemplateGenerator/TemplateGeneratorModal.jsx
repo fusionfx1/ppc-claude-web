@@ -356,7 +356,7 @@ export function TemplateGeneratorModal({ open, onClose, onSave, templates }) {
                         {state.step === 0 && state.mode === MODE_BLANK ? "Cancel" : "← Back"}
                     </button>
 
-                    {(state.step === 4 && state.mode === MODE_BLANK) || (state.step === 1 && state.mode === MODE_FROM_TEMPLATE) ? (
+                    {(state.step === 4 && state.mode === MODE_BLANK) || (state.step === 1 && state.mode === MODE_FROM_TEMPLATE) || (state.step === 1 && state.mode === MODE_FROM_ZIP) ? (
                         <Button onClick={handleSave} style={{ background: "#22c55e", color: "#fff" }}>
                             Save Template
                         </Button>

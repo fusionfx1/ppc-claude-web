@@ -3,7 +3,7 @@ import { Button } from "../../ui/button";
 import { COLORS, FONTS } from "../../../constants";
 
 export function StepTemplateReview({ c, u }) {
-    const isCloneMode = !!c.sourceTemplate;
+    const isCloneMode = !!c.sourceTemplate || (!c.colorId && !!c.generatedFiles);
     const selectedColor = COLORS.find((x) => x.id === c.colorId);
     const selectedFont = FONTS.find((x) => x.id === c.fontId);
 
@@ -62,7 +62,9 @@ export function StepTemplateReview({ c, u }) {
                         width: 60,
                         height: 60,
                         borderRadius: 12,
-                        background: `linear-gradient(135deg, hsl(${selectedColor.p[0]} ${selectedColor.p[1]}% ${selectedColor.p[2]}%) 0%, hsl(${selectedColor.s[0]} ${selectedColor.s[1]}% ${selectedColor.s[2]}%) 100%)`,
+                        background: selectedColor
+                            ? `linear-gradient(135deg, hsl(${selectedColor.p[0]} ${selectedColor.p[1]}% ${selectedColor.p[2]}%) 0%, hsl(${selectedColor.s[0]} ${selectedColor.s[1]}% ${selectedColor.s[2]}%) 100%)`
+                            : `linear-gradient(135deg, ${T.primary} 0%, ${T.primary}99 100%)`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -93,9 +95,13 @@ export function StepTemplateReview({ c, u }) {
                             <span style={{ padding: "4px 8px", background: T.card2, borderRadius: 6 }}>
                                 📁 {c.category || 'general'}
                             </span>
-                            {isCloneMode ? (
+                            {c.sourceTemplate ? (
                                 <span style={{ padding: "4px 8px", background: T.card2, borderRadius: 6 }}>
                                     📂 Cloned from: {c.sourceTemplate}
+                                </span>
+                            ) : isCloneMode ? (
+                                <span style={{ padding: "4px 8px", background: T.card2, borderRadius: 6 }}>
+                                    📦 Uploaded from ZIP
                                 </span>
                             ) : (
                                 <>
