@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Apply - petloansv1</title>
+<meta name="robots" content="noindex,nofollow">
+<!-- v2|6fe75f54e4c04ee0|6fe75f54-mlxnodm5 -->
+<!-- No Google Ads conversion ID configured -->
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:"DM Sans",system-ui,sans-serif;background:hsl(350,15%,97%);min-height:100vh}</style>
+</head>
+<body>
+<script>(function(){var PX='https://t.'+window.location.hostname+'/e';var sid=crypto.randomUUID();var up=new URLSearchParams(window.location.search);var cid=up.get('clickid')||'';var gid=up.get('gclid')||'';function fire(e,d){var p=new URLSearchParams({e:e,sid:sid,cid:cid,gid:gid,ts:Date.now(),url:window.location.pathname,ref:document.referrer});if(d)for(var k in d)p.set(k,d[k]);navigator.sendBeacon(PX,p);}window.__pixel=fire;fire('pv',{ua:navigator.userAgent,sw:screen.width,sh:screen.height});})();</script>
+<script type="text/javascript">
+var clickid=new URLSearchParams(window.location.search).get('clickid')||'';
+var formStartFired=sessionStorage.getItem('_fs')==='1';
+var _lg_form_init_={
+  aid:"14881",
+  template:"fresh",
+  click_id:clickid,
+  onFormLoad:function(){
+    if(!formStartFired){formStartFired=true;sessionStorage.setItem('_fs','1');}
+    if(window.__pixel)__pixel('fl');
+  },
+  onStepChange:function(step){if(window.__pixel)__pixel('step',{step:step});},
+  onSubmit:function(){
+    
+    if(window.__pixel)__pixel('fs',{clickid:clickid});
+  },
+  onSuccess:function(response){
+    if(window.__pixel)__pixel('success',{clickid:clickid,lead_id:response&&response.lead_id||''});
+  }
+};
+</script>
+<script type="text/javascript" async="true" src="https://apikeep.com/form/applicationInit.js"></script>
+<div id="_lg_form_"></div>
+</body>
+</html>
