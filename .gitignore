@@ -14,3 +14,11 @@ dist
 # OS
 .DS_Store
 Thumbs.db
+.claude/
+.windsurf/
+.planning/
+logs/
+*.zip
+test-artifacts/
+node_modules/
+dist/

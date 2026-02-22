@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:domain": "node scripts/build-domain.js",
     "preview": "astro preview",
     "check": "astro check"
   },
