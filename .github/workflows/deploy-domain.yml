@@ -1,11 +1,13 @@
-name: Deploy Single Domain (Survival Mode)
+name: Deploy Single Domain (Auto Project Mode)
 
 on:
   workflow_dispatch:
     inputs:
       domain:
+        description: "Full domain (e.g. bearloannow.com)"
         required: true
       template:
+        description: "Template name"
         required: true
 
 jobs:
@@ -29,12 +31,71 @@ jobs:
           npm run build:domain
         working-directory: apps/lander
 
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: >
-            pages deploy
-            apps/lander/dist-${{ github.event.inputs.domain }}
-            --project-name=${{ github.event.inputs.domain }}
+      # ----------------------------------------------------
+      # Generate slug (remove .com etc.)
+      # ----------------------------------------------------
+      - name: Generate Project Slug
+        id: slug
+        run: |
+          DOMAIN="${{ github.event.inputs.domain }}"
+          SLUG=$(echo "$DOMAIN" | sed 's/\..*$//')
+          echo "slug=$SLUG" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------
+      # Install Wrangler
+      # ----------------------------------------------------
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      # ----------------------------------------------------
+      # Check if project exists
+      # ----------------------------------------------------
+      - name: Check Project
+        id: check_project
+        run: |
+          set +e
+          wrangler pages project list --json > projects.json
+          EXISTS=$(cat projects.json | jq -r '.[] | select(.name=="${{ steps.slug.outputs.slug }}") | .name')
+          if [ -z "$EXISTS" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ----------------------------------------------------
+      # Create project if missing
+      # ----------------------------------------------------
+      - name: Create Project
+        if: steps.check_project.outputs.exists == 'false'
+        run: |
+          wrangler pages project create ${{ steps.slug.outputs.slug }} \
+            --production-branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ----------------------------------------------------
+      # Deploy
+      # ----------------------------------------------------
+      - name: Deploy
+        run: |
+          wrangler pages deploy apps/lander/dist-${{ github.event.inputs.domain }} \
+            --project-name=${{ steps.slug.outputs.slug }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # ----------------------------------------------------
+      # Bind custom domain automatically
+      # ----------------------------------------------------
+      - name: Bind Custom Domain
+        run: |
+          wrangler pages domain add \
+            ${{ github.event.inputs.domain }} \
+            --project-name=${{ steps.slug.outputs.slug }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
