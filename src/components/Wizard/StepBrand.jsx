@@ -1,12 +1,17 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { THEME as T } from "../../constants";
 import { Field } from "../ui/field";
 import { InputField as Inp } from "../ui/input-field";
 import { getTemplateById, DEFAULT_TEMPLATE_ID, getAllTemplates } from "./template-utils";
+import { getAllTemplatesAsync } from "../../utils/template-registry";
 
 export function StepBrand({ c, u }) {
     const selectedTemplate = getTemplateById(c.templateId || DEFAULT_TEMPLATE_ID);
-    const templates = getAllTemplates();
+    const [templates, setTemplates] = useState(getAllTemplates());
+
+    useEffect(() => {
+        getAllTemplatesAsync().then(setTemplates);
+    }, []);
 
     return (
         <>
