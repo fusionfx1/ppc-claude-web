@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "siteId": "6fe75f54e4c04ee0",
+  "brand": "petloansv1",
+  "templateId": "virtual-visual",
+  "environment": "production",
+  "targets": [
+    {
+      "provider": "github-actions"
+    }
+  ],
+  "build": {
+    "entry": "index.html",
+    "extraFiles": [
+      "apply.html"
+    ]
+  },
+  "tracking": {
+    "googleAdsId": "",
+    "pixelEndpoint": "",
+    "voluumDomain": ""
+  },
+  "meta": {
+    "requestedBy": "unknown",
+    "requestedAt": "2026-02-22T11:19:55.903Z",
+    "requestId": "d857e649a1e3",
+    "commitMessage": "deploy(6fe75f54e4c04ee0): petloansv1",
+    "deployRecordId": "4485539a6b1b"
+  }
+}
